@@ -48,13 +48,22 @@ is.mimu = function(obj){class(obj) == "mimu"}
 #' @export
 mgmwm_obj_function = function(theta, model, mimu){
   # Step 1: compute theoretical WV
+  wv_theo = 0  # ADAPT HERE
 
-  # Step 2: extract empirical WV from mimu object
+  # Step 2: compute Omega
+  Omega = list()
+  obj_len  = length(obj_list)
+  for (i in 1:obj_len){
+    Omega[[i]] = 0 # ADAPT HERE
+  }
 
-  # Step 3: compute Omega
-
-  # Step 4: compute actual objective function
-  0
+  # Step 3: compute actual objective function
+  out = 0
+  for (i in 1:obj_len){
+    dif_vect = wv_theo - mimu[[i]]
+    out = out + t(dif_vect)Omega[[i]]%*%dif_vect
+  }
+  out
 }
 
 #' @export
