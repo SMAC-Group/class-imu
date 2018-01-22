@@ -32,8 +32,9 @@ make_wvar_mimu_obj = function(..., freq, unit, sensor.name, exp.name){
   for (i in 1:obj_len){
     inter = wvar(obj_list[[i]])
     inter$scales = inter$scales/freq
-    obj[[i]] = inter
+    obj[[i]] = c(data = list(obj_list[[i]]),inter)
   }
+
   attr(obj, "sensor.name") = sensor.name
   attr(obj, "exp.name") = exp.name
   attr(obj, "freq") = freq
@@ -47,21 +48,28 @@ is.mimu = function(obj){class(obj) == "mimu"}
 
 #' @export
 mgmwm_obj_function = function(theta, model, mimu){
+
   # Step 1: compute theoretical WV
-  wv_theo = 0  # ADAPT HERE
+  tau = list()
+  wv.theo = list()
+  obj_len  = length(mimu)
+  for (i in 1:obj_len) {
+  tau[[i]] = 2^(1:length(mimu[[i]]$scales))
+  wv.theo[[i]] = wv_theo(model, tau[[i]])
+  }
+
 
   # Step 2: compute Omega
   Omega = list()
-  obj_len  = length(obj_list)
   for (i in 1:obj_len){
-    Omega[[i]] = 0 # ADAPT HERE
+    Omega[[i]] = diag(1/(mimu[[i]]$ci_high - mimu[[i]]$ci_low)^2)
   }
 
   # Step 3: compute actual objective function
   out = 0
   for (i in 1:obj_len){
-    dif_vect = wv_theo - mimu[[i]]
-    out = out + t(dif_vect)Omega[[i]]%*%dif_vect
+    dif_vect = wv.theo[[i]] - mimu[[i]]$variance
+    out = out + t(dif_vect)%*%Omega[[i]]%*%dif_vect
   }
   out
 }
@@ -69,8 +77,8 @@ mgmwm_obj_function = function(theta, model, mimu){
 #' @export
 mgmwm = function(model, mimu){
   # Check if model is a ts object
-  if(!gmwm::is.ts.model(model)){
-    stop("`model` must be created from a `ts.model` object using a supported component (e.g. AR1(), ARMA(p,q), DR(), RW(), QN(), and WN(). ")
+  if(!is.mimu(mimu)){
+    stop("`mimu` must be created from a `mimu` object. ")
   }
 
   # Check if mium is a valid object
@@ -81,9 +89,41 @@ mgmwm = function(model, mimu){
   # Add starting value algo ->  call gmwm_gmwm_master_cpp function on each experiment in
   # the mimu object at hand, then we could average or perform some kind of random search
   # between the estimated values.
+  desc = model$desc
+
+  nr = length(mimu)
+
+  obj = model$obj.desc
+
+  np = model$plength
+
+  starting = model$starting
+
+  theta = model$theta
 
 
+  para.gmwm = matrix(NA,np,nr)
+  N = rep(NA,nr)
+  for (i in 1:nr){
+  N[i] = length(mimu[[i]]$data)
+  data = mimu[[i]]$data
+
+  out = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj,
+                       model.type , starting = model$starting,
+                       p = 0.05, compute_v = "bootstrap", K = 1, H = 100, G = 20000,
+                       robust=FALSE, eff = 1)
+  para.gmwm[,i] = out[[1]]
+  }
+  starting.value = apply(para.gmwm, 1, mean)
+
+  out = optim(starting.value, mgmwm_obj_function, model = model, mimu = mimu)
+
+  estimate = out[[1]]
+  rownames(estimate) = model$process.desc
+  colnames(estimate) = "Estimates"
 }
+
+
 
 #' @export
 plot.mimu = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
