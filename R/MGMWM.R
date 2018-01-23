@@ -1,59 +1,109 @@
-#' @title Creates a Multivariate IMU object.
-#'
-#' @description This function creates a Multivariate IMU objects, combining multiple replicates of the
-#' same inertial sensor.
-#' @param X A \code{list} of vector \code{vector} value.
-#' @param freq A \code{numeric} value.
-#' @param units A \code{string}.
-#' @param sensor.name A \code{string}.
-#' @param freq A \code{string}
-#' @result an object which combines multiple error signal from an IMU.
-#' @author Stephane Guerrier
+
 #' @export
-#' @examples
-#' n = 10^6
-#' Xt = rnorm(n/4)
-#' Yt = rnorm(n/2) + cumsum(rnorm(n/2, 0, 10^(-2)))
-#' Zt = rnorm(n) + cumsum(rnorm(n, 0, 10^(-3)))
-#' obj = make_wvar_mimu_obj(Xt, Yt, Zt, freq = 100, unit = "s",
-#' sensor.name = "MTiG - Gyro. X", exp.name = c("today", "yesterday", "a few days ago"))
-make_wvar_mimu_obj = function(..., freq, unit, sensor.name, exp.name){
-  obj_list = list(...)
-  obj_len  = length(obj_list)
-  obj = list()
-  for (i in 1:obj_len){
-    inter = wvar(obj_list[[i]])
-    inter$scales = inter$scales/freq
-    obj[[i]] = c(data = list(obj_list[[i]]),inter)
+mgmwm_obj_function = function(theta, model, mimu){
+
+  # Step 1: compute theoretical WV
+  tau = list()
+  wv.theo = list()
+  obj_len  = length(mimu)
+  for (i in 1:obj_len) {
+    tau[[i]] = 2^(1:length(mimu[[i]]$scales))
+    wv.theo[[i]] = wv_theo(model, tau[[i]])
   }
 
-  attr(obj, "sensor.name") = sensor.name
-  attr(obj, "exp.name") = exp.name
-  attr(obj, "freq") = freq
-  attr(obj, "unit") = unit
-  class(obj) = "mimu"
-  obj
+
+  # Step 2: compute Omega
+  Omega = list()
+  for (i in 1:obj_len){
+    Omega[[i]] = diag(1/(mimu[[i]]$ci_high - mimu[[i]]$ci_low)^2)
+  }
+
+  # Step 3: compute actual objective function
+  out = 0
+  for (i in 1:obj_len){
+    dif_vect = wv.theo[[i]] - mimu[[i]]$variance
+    out = out + t(dif_vect)%*%Omega[[i]]%*%dif_vect
+  }
+  out
 }
 
 #' @export
-is.mimu = function(obj){class(obj) == "mimu"}
+mgmwm = function(model, mimu){
+  # Check if model is a ts object
+  if(!is.mimu(mimu)){
+    stop("`mimu` must be created from a `mimu` object. ")
+  }
+
+  # Check if mium is a valid object
+  if(!is.mimu(mimu)){
+    stop("`model` must be created from a `ts.model` object using a supported component (e.g. AR1(), ARMA(p,q), DR(), RW(), QN(), and WN(). ")
+  }
+
+  # Add starting value algo ->  call gmwm_gmwm_master_cpp function on each experiment in
+  # the mimu object at hand, then we could average or perform some kind of random search
+  # between the estimated values.
+  desc = model$desc
+
+  nr = length(mimu)
+
+  obj = model$obj.desc
+
+  np = model$plength
+
+  starting = model$starting
+
+  theta = model$theta
+
+
+  para.gmwm = matrix(NA,np,nr)
+  N = rep(NA,nr)
+  for (i in 1:nr){
+    N[i] = length(mimu[[i]]$data)
+    data = mimu[[i]]$data
+
+    out = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj,
+                model.type = 'imu' , starting = model$starting,
+                p = 0.05, compute_v = "bootstrap", K = 1, H = 100, G = 10000,
+                robust=FALSE, eff = 1)
+    para.gmwm[,i] = out[[1]]
+  }
+  starting.value = apply(para.gmwm, 1, mean)
+
+  out2 = optim(starting.value, mgmwm_obj_function, model = model, mimu = mimu)
+
+  estimate = out2$par
+  rownames(estimate) = model$process.desc
+  colnames(estimate) = "Estimates"
+
+  class(obj) = "mgmwm"
+}
+
+
+#######################################################################################################################
+#######################################################################################################################
+#######################################################################################################################
+#######################################################################################################################
+#######################################################################################################################
+#######################################################################################################################
+#######################################################################################################################
+
 
 
 #' @export
-plot.mimu = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
-                        ylab = NULL, col_wv = NULL, col_ci = NULL, nb_ticks_x = NULL,
-                        nb_ticks_y = NULL, legend_position = "bottomleft", ci_wv = NULL, point_cex = NULL,
-                        point_pch = NULL, names = NULL){
+plot.mgmwm = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
+                     ylab = NULL, col_wv = NULL, col_ci = NULL, nb_ticks_x = NULL,
+                     nb_ticks_y = NULL, legend_position = "bottomleft", ci_wv = NULL, point_cex = NULL,
+                     point_pch = NULL, names = NULL){
 
   obj_name = attr(obj, "exp.name")
   obj_len  = length(obj_list)
   units = attr(obj, "unit")
   main = attr(obj, "sensor.name")
 
-  # Check if passed objects are of the class mimu
-  #is_mimu = class(obj_list)
-  #if(!(is_mimu == T)){
-  #  stop("Supplied object must be 'mimu' objects.")
+  # Check if passed objects are of the class wvar
+  #is_wvar = sapply(obj_list, FUN = is, class2 = 'wvar')
+  #if(!all(is_wvar == T)){
+  #  stop("Supplied objects must be 'wvar' objects.")
   #}
 
   # Check length of time series argument
@@ -212,62 +262,4 @@ plot.mimu = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
       compare_wvar_split(graph_details)
     }
   }
-}
-
-#' @export
-wv_theo = function(model, tau){
-  if (!class(model) == "ts.model"){
-    # Error
-  }
-
-  # Number of scales
-  J = length(tau)
-
-  # Extract process description
-  desc = model$desc
-
-  # Number of latent processes
-  M = length(desc)
-
-  # Extract parameters
-  theta = model$theta
-
-  # Initialise counter
-  counter = 1
-
-  # Compute theoretical wvar for each latent process
-  wv = matrix(NA, M, J)
-  for (i in 1:M){
-    # is random walk?
-    if (desc[i] == "RW"){
-      wv[i, ] = gmwm::rw_to_wv(gamma2 = theta[counter], tau = tau)
-      counter = counter + 1
-    }
-
-    # is white noise?
-    if (desc[i] == "WN"){
-      wv[i, ] = gmwm::wn_to_wv(sigma2 = theta[counter], tau = tau)
-      counter = counter + 1
-    }
-
-    # is drift?
-    if (desc[i] == "DR"){
-      wv[i, ] = gmwm::dr_to_wv(omega = theta[counter], tau = tau)
-      counter = counter + 1
-    }
-
-    # is quantization noise?
-    if (desc[i] == "QN"){
-      wv[i, ] = gmwm::qn_to_wv(q2 = theta[counter], tau = tau)
-      counter = counter + 1
-    }
-
-    # is AR1?
-    if (desc[i] == "AR1"){
-      wv[i, ] = gmwm::ar1_to_wv(phi = theta[counter], sigma2 = theta[counter + 1], tau = tau)
-      counter = counter + 2
-    }
-  }
-  # Summing them up and return
-  apply(wv, 2, sum)
 }
