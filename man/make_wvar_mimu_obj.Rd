@@ -2,12 +2,24 @@
 % Please edit documentation in R/test.R
 \name{make_wvar_mimu_obj}
 \alias{make_wvar_mimu_obj}
-\title{TO DO}
+\title{Creates a Multivariate IMU object.}
 \usage{
 make_wvar_mimu_obj(..., freq, unit, sensor.name, exp.name)
 }
+\arguments{
+\item{freq}{A \code{numeric} value.}
+
+\item{sensor.name}{A \code{string}.}
+
+\item{X}{A \code{list} of vector \code{vector} value.}
+
+\item{units}{A \code{string}.}
+
+\item{freq}{A \code{string}}
+}
 \description{
-TO DO
+This function creates a Multivariate IMU objects, combining multiple replicates of the
+same inertial sensor.
 }
 \examples{
 n = 10^6
@@ -16,5 +28,7 @@ Yt = rnorm(n/2) + cumsum(rnorm(n/2, 0, 10^(-2)))
 Zt = rnorm(n) + cumsum(rnorm(n, 0, 10^(-3)))
 obj = make_wvar_mimu_obj(Xt, Yt, Zt, freq = 100, unit = "s",
 sensor.name = "MTiG - Gyro. X", exp.name = c("today", "yesterday", "a few days ago"))
-plot(obj)
+}
+\author{
+Stephane Guerrier
 }
