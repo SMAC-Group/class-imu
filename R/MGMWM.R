@@ -63,28 +63,15 @@ mgmwm = function(model, mimu){
     N[i] = length(mimu[[i]]$data)
     data = mimu[[i]]$data
 
-    out = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj,
-                model.type = 'imu' , starting = model$starting,
-                p = 0.05, compute_v = "bootstrap", K = 1, H = 100, G = 10000,
-                robust=FALSE, eff = 1)
-    para.gmwm[,i] = out[[1]]
-  }
-  starting.value = apply(para.gmwm, 1, mean)
-
-  out2 = optim(starting.value, mgmwm_obj_function, model = model1, mimu = mimu)$par
-
-  para.gmwm = matrix(NA,np,nr)
-  N = rep(NA,nr)
-  for (i in 1:nr){
-    N[i] = length(mimu[[i]]$data)
-    data = mimu[[i]]$data
+    # If
 
     out = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj,
                 model.type = 'imu' , starting = model$starting,
-                p = 0.05, compute_v = "bootstrap", K = 1, H = 100, G = 10000,
+                p = 0.05, compute_v = "fast", K = 1, H = 100, G = 100000,
                 robust=FALSE, eff = 1)
     para.gmwm[,i] = out[[1]]
   }
+
   starting.value = apply(para.gmwm, 1, mean)
 
   out2 = optim(starting.value, mgmwm_obj_function, model = model1, mimu = mimu)

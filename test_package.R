@@ -3,11 +3,11 @@ library(gmwm)
 library(wv)
 library(classimu)
 
-n1 = 100000
-n2 = 100000
-n3 = 100000
+n1 = 10000
+n2 = 10000
+n3 = 10000
 
-model =  AR1(.85,sigma2 = 1 ) + WN(1.5e-10) + RW (1e-7)
+model =  AR1(.85,sigma2 = 1 ) + WN(.5) + RW (1e-4)
 model1 = AR1() + WN() + RW ()
 
 
@@ -21,17 +21,16 @@ tau = 2^(1:12)
 
 wv.theo = wv_theo(model, tau)
 
-mimu[[2]]$variance
+obj[[2]]$variance
 
-theta = c(.85,1,1.5e-10,1e-7)
-mgmwm_obj_function (theta, model, mimu)
+theta = c(.85,1,5,1e-4)
+mgmwm_obj_function (theta, model, obj)
 
 test.optim = matrix(NA,30,4)
 
-for(i in 1:30){
 
-  test.optim[i,] = mgmwm(model1, mimu)$par
-}
+test.optim = mgmwm(model1, obj)$par
+
 
 
 
