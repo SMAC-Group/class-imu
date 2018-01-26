@@ -28,7 +28,7 @@ mgmwm_obj_function = function(theta, model, mimu){
 }
 
 #' @export
-mgmwm = function(model, mimu){
+mgmwm = function(model, mimu, near.stayionary.test = FALSE, B = B){
   # Check if model is a ts object
   if(!is.mimu(mimu)){
     stop("`mimu` must be created from a `mimu` object. ")
@@ -44,6 +44,8 @@ mgmwm = function(model, mimu){
   # between the estimated values.
   desc = model$desc
 
+  n.process = length(model$desc)
+
   nr = length(mimu)
 
   obj = model$obj.desc
@@ -54,35 +56,137 @@ mgmwm = function(model, mimu){
 
   theta = model$theta
 
-  out2 = matrix(NA,30,4)
-
-
   para.gmwm = matrix(NA,np,nr)
   N = rep(NA,nr)
   for (i in 1:nr){
     N[i] = length(mimu[[i]]$data)
     data = mimu[[i]]$data
+    tau = 2^
 
-    # If
+    # Select G
 
-    out = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj,
+      if(N[i] > 10000){
+        G = 1e6
+      }else{
+        G = 20000
+      }
+
+    uni.gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj,
                 model.type = 'imu' , starting = model$starting,
-                p = 0.05, compute_v = "fast", K = 1, H = 100, G = 100000,
+                p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
                 robust=FALSE, eff = 1)
-    para.gmwm[,i] = out[[1]]
+    para.gmwm[,i] = uni.gmwm[[1]]
   }
 
   starting.value = apply(para.gmwm, 1, mean)
 
-  out2 = optim(starting.value, mgmwm_obj_function, model = model1, mimu = mimu)
+  out = optim(starting.value, mgmwm_obj_function, model = model, mimu = mimu)
 
-  estimate = out2$par
-  #rownames(estimate) = model$process.desc
-  #colnames(estimate) = "Estimates"
+  # Pass on the estimated paramters onto the model.
 
-  class(obj) = "mgmwm"
+  model$theta = out$par
 
-  print(out2)
+  # Extact the max number of scales.
+
+  scales.num = rep(NA,length(mimu))
+
+  for (i in 1:(length(mimu))){
+    scales.num[i] = length(mimu[[i]]$scales)
+  }
+
+  max.scales = max(scales.num)
+  tau.max = 2^(1:max.scales)
+
+  theo.wv = wv_theo(model, tau.max)
+
+
+  #### Extact individual model for Theoretical decomposition
+
+  model.desc.decomp.theo = list()
+
+  # Initialise counter
+  counter = 1
+
+  for (i in 1:n.process){
+
+    if (desc[i] == "RW"){
+      model.desc.decomp.theo[[i]] = RW(gamma2 = model$theta[counter])
+      counter = counter + 1
+    }
+
+    # is white noise?
+   if (desc[i] == "WN"){
+      model.desc.decomp.theo[[i]] =WN(sigma2 = model$theta[counter])
+      counter = counter + 1
+   }
+
+   # is drift?
+    if (desc[i] == "DR"){
+      model.desc.decomp.theo[[i]] = DR(omega = model$theta[counter])
+      counter = counter + 1
+   }
+
+    # is quantization noise?
+    if (desc[i] == "QN"){
+      model.desc.decomp.theo[[i]] = QN(q2 = model$theta[counter])
+      counter = counter + 1
+    }
+
+    # is AR1?
+    if (desc[i] == "AR1"){
+      model.desc.decomp.theo[[i]] = AR1(phi = model$theta[counter], sigma2 = model$theta[counter + 1])
+      counter = counter + 2
+    }
+  }
+
+  # Compute individual theoretical wv
+
+   decomp.theo = list()
+  for (i in 1:length(mimu)){
+    model.decomp.theo = model.desc.decomp.theo[[i]]
+    decomp.theo[[i]] =  wv_theo(model.decomp.theo, tau.max)
+  }
+
+  estimate = t(t(out$par))
+  rownames(estimate) = model$process.desc
+  colnames(estimate) = "Estimates"
+
+  obj.value = out$value
+  names(obj.value) = "Value Objective Function"
+
+  wv.empir = list()
+  for (i in 1:length(mimu)){
+    wv.empir[[i]] = mimu[[i]]$variance
+  }
+  scales = list()
+  for (i in 1:length(mimu)){
+    scales[[i]] = mimu[[i]]$scales
+  }
+
+  ci_low = list()
+  for (i in 1:length(mimu)){
+    ci_low[[i]] = mimu[[i]]$ci_low
+  }
+
+  ci_high = list()
+  for (i in 1:length(mimu)){
+    ci_high[[i]] = mimu[[i]]$ci_high
+  }
+
+
+  out = structure(list(estimate = estimate,
+                       obj.value = obj.value,
+                       decomp.theo = decomp.theo,
+                       wv.empir = wv.empir,
+                       scales = scales,
+                       ci_high = ci_high,
+                       ci_low = ci_high,
+                       model = model,
+                       tau.max = tau.max,
+                       exp.name = exp.name,
+                       unit = unit
+                       theo = theo.wv), class = "mgmwm")
+  invisible(out)
 }
 
 
@@ -103,7 +207,7 @@ plot.mgmwm = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
                      point_pch = NULL, names = NULL){
 
   obj_name = attr(obj, "exp.name")
-  obj_len  = length(obj_list)
+  obj_len  = length(obj_list$wv.empir)
   units = attr(obj, "unit")
   main = attr(obj, "sensor.name")
 
@@ -166,8 +270,8 @@ plot.mgmwm = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
     # Find x and y limits
     x_range = y_range = rep(NULL, 2)
     for (i in 1:obj_len){
-      x_range = range(c(x_range, obj_list[[i]]$scales))
-      y_range = range(c(y_range, obj_list[[i]]$ci_low, obj_list[[i]]$ci_high))
+      x_range = range(c(x_range, obj_list$scales[[i]]))
+      y_range = range(c(y_range, obj_list$ci_low[[i]], obj_list$ci_high[[i]]))
     }
 
     x_low = floor(log10(x_range[1]))
@@ -214,7 +318,7 @@ plot.mgmwm = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
     if (is.null(legend_position)){
       inter = rep(NA, obj_len)
       for (i in 1:obj_len){
-        inter[i] = obj_list[[i]]$variance[1]
+        inter[i] = obj_list$wv.empir[[1]][1]
       }
       mean_wv_1 = mean(inter)
       if (which.min(abs(c(y_low, y_high) - log2(mean_wv_1))) == 1){

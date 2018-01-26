@@ -18,6 +18,7 @@
 #' obj = make_wvar_mimu_obj(Xt, Yt, Zt, freq = 100, unit = "s",
 #' sensor.name = "MTiG - Gyro. X", exp.name = c("today", "yesterday", "a few days ago"))
 make_wvar_mimu_obj = function(..., freq, unit, sensor.name, exp.name){
+
   obj_list = list(...)
   obj_len  = length(obj_list)
   obj = list()
