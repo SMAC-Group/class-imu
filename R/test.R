@@ -113,7 +113,11 @@ plot.mimu = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
     }
 
     if (is.null(transparency)){
-      transparency = 0.2
+      if(obj_len < 3){
+        transparency = 0.2
+      }else{
+        transparency = 0.1
+      }
     }else{
       transparency = transparency
     }
