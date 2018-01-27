@@ -204,13 +204,6 @@ plot.mgmwm = function(obj_list, process.decomp = FALSE){
     U = length(obj_list$decomp.theo)
     # Plot lines of decomp theo
     for (i in 1:U){
-      if (is.null(point_pch)){
-        point_pch = 16
-      }
-
-      if (is.null(point_cex)){
-        point_cex = 1.25
-      }
       lines(t(obj_list$scales.max), obj_list$decomp.theo[[i]])
     }
   }
