@@ -4,7 +4,8 @@
 \alias{make_wvar_mimu_obj}
 \title{Creates a Multivariate IMU object.}
 \usage{
-make_wvar_mimu_obj(..., freq, unit, sensor.name, exp.name)
+make_wvar_mimu_obj(..., freq, unit = NULL, sensor.name = NULL,
+  exp.name = NULL)
 }
 \arguments{
 \item{freq}{A \code{numeric} value.}
