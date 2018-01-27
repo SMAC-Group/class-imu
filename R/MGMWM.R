@@ -28,7 +28,7 @@ mgmwm_obj_function = function(theta, model, mimu){
 }
 
 #' @export
-mgmwm = function(model, mimu){
+mgmwm = function(model, mimu, stationarity_test = FALSE, B = B){
   # Check if model is a ts object
   if(!is.mimu(mimu)){
     stop("`mimu` must be created from a `mimu` object. ")
@@ -41,19 +41,13 @@ mgmwm = function(model, mimu){
 
   desc = model$desc
 
-  n.process = length(model$desc)
+  n_process = length(model$desc)
 
   nr = length(mimu)
 
-  obj = model$obj.desc
+  obj_desc = model$obj.desc
 
-  np = model$plength
-
-  starting = model$starting
-
-  theta = model$theta
-
-  para.gmwm = matrix(NA,np,nr)
+  para_gmwm = matrix(NA,np,nr)
   N = rep(NA,nr)
   for (i in 1:nr){
     N[i] = length(mimu[[i]]$data)
@@ -67,16 +61,18 @@ mgmwm = function(model, mimu){
         G = 20000
       }
 
-    uni.gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj,
+    uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
                 model.type = 'imu' , starting = model$starting,
                 p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
                 robust=FALSE, eff = 1)
-    para.gmwm[,i] = uni.gmwm[[1]]
+    para_gmwm[,i] = uni_gmwm[[1]]
   }
 
-  starting.value = apply(para.gmwm, 1, mean)
+  starting_value = apply(para_gmwm, 1, mean)
 
-  out = optim(starting.value, mgmwm_obj_function, model = model, mimu = mimu)
+  starting_value = c(.85, 1, .5, 1e-4)
+
+  out = optim(starting_value, mgmwm_obj_function, model = model.hat, mimu = mimu)
 
   # Create estimated model object
   model.hat = model
@@ -90,23 +86,29 @@ mgmwm = function(model, mimu){
 
   distrib.H0 = rep(NA,B)
 
-
-  for (i in 1:B){
-    sim.H0 = list()
-    for (j in 1:length(mimu)){
-      sim.H0[[j]] = simts::gen_gts(N[j],model.hat)
+  if(stationarity_test == TRUE){
+    if(is.null(B)){
+      B = 100
+    }else{
+      B = B
     }
-    simu.obj = make_wvar_mimu_obj(for_test = sim.H0, freq = 100, unit = "s", sensor.name = "MTiG - Gyro. X",
-                                  exp.name = c("today", "yesterday", "a few days ago"))
-    distrib.H0[i] = optim(starting.value, mgmwm_obj_function, model = model.hat, mimu = simu.obj)$value
+    for (i in 1:B){
+      sim.H0 = list()
+      for (j in 1:nr){
+        sim.H0[[j]] = simts::gen_gts(N[j],model.hat)
+      }
+      simu.obj = make_wvar_mimu_obj(for_test = sim.H0, freq = 100, unit = "s", sensor.name = "MTiG - Gyro. X",
+                                    exp.name = c("today", "yesterday", "a few days ago"))
+      distrib.H0[i] = optim(starting_value, mgmwm_obj_function, model = model, mimu = simu.obj)$value
+    }
   }
 
-
+  p_value = sum(distrib.H0 >= out$value)/B
   # Extact the max number of scales.
 
   scales.num = rep(NA,length(mimu))
 
-  for (i in 1:(length(mimu))){
+  for (i in 1:nr){
     scales.num[i] = length(mimu[[i]]$scales)
   }
 
@@ -182,7 +184,7 @@ mgmwm = function(model, mimu){
                        model.hat = model.hat,
                        scales.max = scales.max,
                        mimu = mimu,
-                       unit = unit,
+                       p_value = p_value,
                        wv.implied = wv.implied), class = "mgmwm")
   invisible(out)
 }
