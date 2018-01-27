@@ -76,10 +76,10 @@ mgmwm = function(model, mimu){
 
   starting.value = apply(para.gmwm, 1, mean)
 
-  out = optim(starting.value, mgmwm_obj_function, model = model1, mimu = mimu)
+  out = optim(starting.value, mgmwm_obj_function, model = model, mimu = mimu)
 
   # Create estimated model object
-  model.hat = model1
+  model.hat = model
 
   # Pass on the estimated paramters onto the model.
   model.hat$starting = FALSE

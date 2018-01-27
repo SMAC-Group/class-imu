@@ -27,7 +27,7 @@ obj_list = test.optim
 
 obj = mimu
 
-
+plot(test.optim, process.decomp = FALSE)
 
 
 
