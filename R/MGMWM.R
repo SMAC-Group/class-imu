@@ -131,7 +131,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = B){
   # Initialise counter
   counter = 1
 
-  for (i in 1:n.process){
+  for (i in 1:n_process){
 
     if (desc[i] == "RW"){
       model.desc.decomp.theo[[i]] = RW(gamma2 = model.hat$theta[counter])
