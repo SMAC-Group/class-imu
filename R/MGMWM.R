@@ -28,7 +28,7 @@ mgmwm_obj_function = function(theta, model, mimu){
 }
 
 #' @export
-mgmwm = function(model, mimu, near.stayionary.test = FALSE, B = B){
+mgmwm = function(model, mimu){
   # Check if model is a ts object
   if(!is.mimu(mimu)){
     stop("`mimu` must be created from a `mimu` object. ")
@@ -39,9 +39,6 @@ mgmwm = function(model, mimu, near.stayionary.test = FALSE, B = B){
     stop("`model` must be created from a `ts.model` object using a supported component (e.g. AR1(), ARMA(p,q), DR(), RW(), QN(), and WN(). ")
   }
 
-  # Add starting value algo ->  call gmwm_gmwm_master_cpp function on each experiment in
-  # the mimu object at hand, then we could average or perform some kind of random search
-  # between the estimated values.
   desc = model$desc
 
   n.process = length(model$desc)
@@ -61,7 +58,6 @@ mgmwm = function(model, mimu, near.stayionary.test = FALSE, B = B){
   for (i in 1:nr){
     N[i] = length(mimu[[i]]$data)
     data = mimu[[i]]$data
-    tau = 2^
 
     # Select G
 
@@ -80,11 +76,28 @@ mgmwm = function(model, mimu, near.stayionary.test = FALSE, B = B){
 
   starting.value = apply(para.gmwm, 1, mean)
 
-  out = optim(starting.value, mgmwm_obj_function, model = model, mimu = mimu)
+  out = optim(starting.value, mgmwm_obj_function, model = model1, mimu = mimu)
+
+  # Create estimated model object
+  model.hat = model1
 
   # Pass on the estimated paramters onto the model.
+  model.hat$starting = FALSE
+  model.hat$theta = out$par
 
-  model$theta = out$par
+
+  # Create the near-stationnary test
+
+  # distrib.H0 = rep(NA,B)
+  #
+  # sim.H0 = list()
+  # for (i in 1:length(mimu)){
+  #   sim.H0[[i]] = gen_gts(N[i],model.hat)
+  #   vec.sim.H0[i] =
+  #   simu.obj = make_wvar_mimu_obj(sim.H0, freq = 100, unit = "s",
+  #                             sensor.name = "MTiG - Gyro. X", exp.name = c("today", "yesterday", "a few days ago"))
+  #   distrib.H0[i] = out = optim(starting.value, mgmwm_obj_function, model = model.hat, mimu = simu.obj)
+  # }
 
   # Extact the max number of scales.
 
@@ -94,10 +107,14 @@ mgmwm = function(model, mimu, near.stayionary.test = FALSE, B = B){
     scales.num[i] = length(mimu[[i]]$scales)
   }
 
+  max.scales.index = which.max(scales.num)
   max.scales = max(scales.num)
+  scales.max = mimu[[max.scales.index]]$scales
   tau.max = 2^(1:max.scales)
 
-  theo.wv = wv_theo(model, tau.max)
+  # WV implied by the parameter
+
+  wv.implied = wv_theo(model.hat, tau.max)
 
 
   #### Extact individual model for Theoretical decomposition
@@ -110,31 +127,31 @@ mgmwm = function(model, mimu, near.stayionary.test = FALSE, B = B){
   for (i in 1:n.process){
 
     if (desc[i] == "RW"){
-      model.desc.decomp.theo[[i]] = RW(gamma2 = model$theta[counter])
+      model.desc.decomp.theo[[i]] = RW(gamma2 = model.hat$theta[counter])
       counter = counter + 1
     }
 
     # is white noise?
    if (desc[i] == "WN"){
-      model.desc.decomp.theo[[i]] =WN(sigma2 = model$theta[counter])
+      model.desc.decomp.theo[[i]] =WN(sigma2 = model.hat$theta[counter])
       counter = counter + 1
    }
 
    # is drift?
     if (desc[i] == "DR"){
-      model.desc.decomp.theo[[i]] = DR(omega = model$theta[counter])
+      model.desc.decomp.theo[[i]] = DR(omega = model.hat$theta[counter])
       counter = counter + 1
    }
 
     # is quantization noise?
     if (desc[i] == "QN"){
-      model.desc.decomp.theo[[i]] = QN(q2 = model$theta[counter])
+      model.desc.decomp.theo[[i]] = QN(q2 = model.hat$theta[counter])
       counter = counter + 1
     }
 
     # is AR1?
     if (desc[i] == "AR1"){
-      model.desc.decomp.theo[[i]] = AR1(phi = model$theta[counter], sigma2 = model$theta[counter + 1])
+      model.desc.decomp.theo[[i]] = AR1(phi = model.hat$theta[counter], sigma2 = model.hat$theta[counter + 1])
       counter = counter + 2
     }
   }
@@ -148,44 +165,22 @@ mgmwm = function(model, mimu, near.stayionary.test = FALSE, B = B){
   }
 
   estimate = t(t(out$par))
-  rownames(estimate) = model$process.desc
+  rownames(estimate) = model.hat$process.desc
   colnames(estimate) = "Estimates"
 
   obj.value = out$value
   names(obj.value) = "Value Objective Function"
 
-  wv.empir = list()
-  for (i in 1:length(mimu)){
-    wv.empir[[i]] = mimu[[i]]$variance
-  }
-  scales = list()
-  for (i in 1:length(mimu)){
-    scales[[i]] = mimu[[i]]$scales
-  }
-
-  ci_low = list()
-  for (i in 1:length(mimu)){
-    ci_low[[i]] = mimu[[i]]$ci_low
-  }
-
-  ci_high = list()
-  for (i in 1:length(mimu)){
-    ci_high[[i]] = mimu[[i]]$ci_high
-  }
-
 
   out = structure(list(estimate = estimate,
                        obj.value = obj.value,
                        decomp.theo = decomp.theo,
-                       wv.empir = wv.empir,
-                       scales = scales,
-                       ci_high = ci_high,
-                       ci_low = ci_high,
                        model = model,
-                       tau.max = tau.max,
-                       exp.name = exp.name,
-                       unit = unit
-                       theo = theo.wv), class = "mgmwm")
+                       model.hat = model.hat,
+                       scales.max = scales.max,
+                       mimu = mimu,
+                       unit = unit,
+                       wv.implied = wv.implied), class = "mgmwm")
   invisible(out)
 }
 
@@ -193,184 +188,34 @@ mgmwm = function(model, mimu, near.stayionary.test = FALSE, B = B){
 #######################################################################################################################
 #######################################################################################################################
 #######################################################################################################################
+######################################              GRAPH               ############################################
 #######################################################################################################################
 #######################################################################################################################
 #######################################################################################################################
-#######################################################################################################################
-
 
 
 #' @export
-plot.mgmwm = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
-                     ylab = NULL, col_wv = NULL, col_ci = NULL, nb_ticks_x = NULL,
-                     nb_ticks_y = NULL, legend_position = "bottomleft", ci_wv = NULL, point_cex = NULL,
-                     point_pch = NULL, names = NULL){
+plot.mgwmw = function(obj_list, process.decomp = FALSE){
 
-  obj_name = attr(obj, "exp.name")
-  obj_len  = length(obj_list$wv.empir)
-  units = attr(obj, "unit")
-  main = attr(obj, "sensor.name")
+  plot(mimu, add_legend = FALSE)
 
-  # Check if passed objects are of the class wvar
-  #is_wvar = sapply(obj_list, FUN = is, class2 = 'wvar')
-  #if(!all(is_wvar == T)){
-  #  stop("Supplied objects must be 'wvar' objects.")
-  #}
-
-  # Check length of time series argument
-  if (obj_len == 0){
-    stop('No object given!')
-  }else if (obj_len == 1){
-    # -> plot.wvar
-    plot.wvar(..., nb_ticks_x = nb_ticks_x, nb_ticks_y = nb_ticks_y)
-  }else{
-
-    if (is.null(xlab)){
-      if (is.null(units)){
-        xlab = expression(paste("Scale ", tau, sep =""))
-      }else{
-        xlab = bquote(paste("Scale ", "(", .(units), ")", sep = " "))
+  if(process.decomp == TRUE){
+    # Number of Latent proces
+    U = length(obj_list$decomp.theo)
+    # Plot lines of decomp theo
+    for (i in 1:U){
+      if (is.null(point_pch)){
+        point_pch = 16
       }
-    }else{
-      xlab = xlab
-    }
 
-    if (is.null(ylab)){
-      ylab = bquote(paste("Wavelet Variance ", nu^2, sep = " "))
-    }else{
-      ylab = ylab
-    }
-
-    if (is.null(ci_wv)){
-      ci_wv = rep(TRUE, obj_len)
-    }else{
-      ci_wv = rep(ci_wv, obj_len)
-    }
-
-
-    hues = seq(15, 375, length = obj_len + 1)
-    # Line and CI colors
-    if (is.null(col_wv)){
-      col_wv = hcl(h = hues, l = 65, c = 200, alpha = 1)[seq_len(obj_len)]
-    }else{
-      if (length(col_wv) != obj_len){
-        col_wv = hcl(h = hues, l = 65, c = 200, alpha = 1)[seq_len(obj_len)]
+      if (is.null(point_cex)){
+        point_cex = 1.25
       }
-    }
-
-    if (is.null(col_ci)){
-      col_ci = hcl(h = hues, l = 80, c = 100, alpha = 0.2)[seq_len(obj_len)]
-    }else{
-      if (length(col_ci) != obj_len){
-        col_ci = hcl(h = hues, l = 80, c = 100, alpha = 0.2)[seq_len(obj_len)]
-      }
-    }
-
-    # Range
-    # Find x and y limits
-    x_range = y_range = rep(NULL, 2)
-    for (i in 1:obj_len){
-      x_range = range(c(x_range, obj_list$scales[[i]]))
-      y_range = range(c(y_range, obj_list$ci_low[[i]], obj_list$ci_high[[i]]))
-    }
-
-    x_low = floor(log10(x_range[1]))
-    x_high = ceiling(log10(x_range[2]))
-    y_low = floor(log10(y_range[1]))
-    y_high = ceiling(log10(y_range[2]))
-
-    # Axes
-    if (is.null(nb_ticks_x)){
-      nb_ticks_x = 6
-    }
-
-    if (is.null(nb_ticks_y)){
-      nb_ticks_y = 5
-    }
-
-    x_ticks = seq(x_low, x_high, by = 1)
-    if (length(x_ticks) > nb_ticks_x){
-      x_ticks = x_low + ceiling((x_high - x_low)/(nb_ticks_x + 1))*(0:nb_ticks_x)
-    }
-    x_labels = sapply(x_ticks, function(i) as.expression(bquote(10^ .(i))))
-    x_at = 10^x_ticks
-    x_actual_length = sum((x_at < x_range[2])*(x_at > x_range[1]))
-
-    if (x_actual_length < (3 + as.numeric(split == FALSE))){
-      x_low = floor(log2(x_range[1]))
-      x_high = ceiling(log2(x_range[2]))
-      x_ticks = seq(x_low, x_high, by = 1)
-      if (length(x_ticks) > 8){
-        x_ticks = seq(x_low, x_high, by = 2)
-      }
-      x_labels = sapply(x_ticks, function(i) as.expression(bquote(2^ .(i))))
-      x_at = 2^x_ticks
-    }
-    y_ticks <- seq(y_low, y_high, by = 1)
-
-    if (length(y_ticks) > nb_ticks_y){
-      y_ticks = y_low + ceiling((y_high - y_low)/(nb_ticks_y + 1))*(0:nb_ticks_y)
-    }
-    y_labels = sapply(y_ticks, function(i) as.expression(bquote(10^ .(i))))
-    y_at = 10^y_ticks
-
-    # Legend position
-    if (is.null(legend_position)){
-      inter = rep(NA, obj_len)
-      for (i in 1:obj_len){
-        inter[i] = obj_list$wv.empir[[1]][1]
-      }
-      mean_wv_1 = mean(inter)
-      if (which.min(abs(c(y_low, y_high) - log2(mean_wv_1))) == 1){
-        legend_position = "topleft"
-      }else{
-        legend_position = "bottomleft"
-      }
-    }
-
-    if (is.null(point_pch)){
-      inter = rep(15:18, obj_len)
-      point_pch = inter[1:obj_len]
-    }else{
-      if (length(point_pch) != obj_len){
-        inter = rep(15:18, obj_len)
-        point_pch = inter[1:obj_len]
-      }
-    }
-
-    if (is.null(point_cex)){
-      inter = rep(c(1.25,1.25,1.25,1.6), obj_len)
-      point_cex = inter[1:obj_len]
-    }else{
-      if (length(point_pch) != obj_len){
-        inter = rep(c(1.25,1.25,1.25,1.6), obj_len)
-        point_cex = inter[1:obj_len]
-      }
-    }
-
-    if (is.null(names)){
-      names = obj_name
-    }else{
-      if (length(names) != obj_len){
-        names = obj_name
-      }
-    }
-
-    # Arguments passed into compare_wvar_split or compare_wvar_no_split
-    graph_details = list(obj_list = obj_list, obj_len = obj_len, names = names, xlab = xlab,
-                         ylab = ylab, col_wv = col_wv, add_legend = add_legend,
-                         col_ci = col_ci, main = main, legend_position = legend_position,
-                         ci_wv = ci_wv, point_cex = point_cex, point_pch = point_pch,
-                         x_range = x_range, y_range = y_range, x_ticks = x_ticks,
-                         x_labels = x_labels, y_labels = y_labels, x_at = x_at, y_at = y_at,
-                         y_ticks = y_ticks, nb_ticks_x = nb_ticks_x, nb_ticks_y = nb_ticks_y)
-
-    if (split == FALSE){
-      # -> compare_wvar_no_split
-      compare_wvar_no_split(graph_details)
-    }else{
-      # -> compare_wvar_split
-      compare_wvar_split(graph_details)
+      lines(t(obj_list$scales.max), obj_list$decomp.theo[[i]])
     }
   }
+  # Plot implied WV
+  lines(t(obj_list$scales.max),obj_list$wv.implied, type = "l", col = "darkred", pch = 16)
 }
+
+

@@ -17,21 +17,41 @@
 #' Zt = rnorm(n) + cumsum(rnorm(n, 0, 10^(-3)))
 #' obj = make_wvar_mimu_obj(Xt, Yt, Zt, freq = 100, unit = "s",
 #' sensor.name = "MTiG - Gyro. X", exp.name = c("today", "yesterday", "a few days ago"))
-make_wvar_mimu_obj = function(..., freq, unit, sensor.name, exp.name){
+make_wvar_mimu_obj = function(..., freq, unit = NULL, sensor.name = NULL, exp.name = NULL){
 
   obj_list = list(...)
   obj_len  = length(obj_list)
   obj = list()
-  for (i in 1:obj_len){
-    inter = wvar(obj_list[[i]])
-    inter$scales = inter$scales/freq
-    obj[[i]] = c(data = list(obj_list[[i]]),inter)
+    for (i in 1:obj_len){
+      inter = wvar(obj_list[[i]])
+      inter$scales = inter$scales/freq
+      obj[[i]] = c(data = list(obj_list[[i]]),inter)
+    }
+
+  if(is.null(sensor.name)){
+    attr(obj, "") = sensor.name
+  }else{
+    attr(obj, "sensor.name") = sensor.name
   }
 
-  attr(obj, "sensor.name") = sensor.name
-  attr(obj, "exp.name") = exp.name
-  attr(obj, "freq") = freq
-  attr(obj, "unit") = unit
+  if(is.null(freq)){
+    attr(obj, "") = freq
+  }else{
+    attr(obj, "freq") = freq
+  }
+
+  if(is.null(unit)){
+    attr(obj, "") = unit
+  }else{
+    attr(obj, "unit") = unit
+  }
+
+  if(is.null(exp.name)){
+      attr(obj, "") = exp.name
+  }else{
+      attr(obj, "exp.name") = exp.name
+  }
+
   class(obj) = "mimu"
   obj
 }
@@ -44,7 +64,7 @@ is.mimu = function(obj){class(obj) == "mimu"}
 plot.mimu = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
                         ylab = NULL, col_wv = NULL, col_ci = NULL, nb_ticks_x = NULL,
                         nb_ticks_y = NULL, legend_position = "bottomleft", ci_wv = NULL, point_cex = NULL,
-                        point_pch = NULL, names = NULL){
+                        point_pch = NULL, names = NULL, transparency = NULL){
 
   obj_name = attr(obj, "exp.name")
   obj_len  = length(obj_list)
@@ -87,6 +107,12 @@ plot.mimu = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
       ci_wv = rep(ci_wv, obj_len)
     }
 
+    if (is.null(transparency)){
+      transparency = 0.2
+    }else{
+      transparency = transparency
+    }
+
 
     hues = seq(15, 375, length = obj_len + 1)
     # Line and CI colors
@@ -99,10 +125,10 @@ plot.mimu = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
     }
 
     if (is.null(col_ci)){
-      col_ci = hcl(h = hues, l = 80, c = 100, alpha = 0.2)[seq_len(obj_len)]
+      col_ci = hcl(h = hues, l = 80, c = 100, alpha = transparency)[seq_len(obj_len)]
     }else{
       if (length(col_ci) != obj_len){
-        col_ci = hcl(h = hues, l = 80, c = 100, alpha = 0.2)[seq_len(obj_len)]
+        col_ci = hcl(h = hues, l = 80, c = 100, alpha = transparency)[seq_len(obj_len)]
       }
     }
 
