@@ -45,6 +45,8 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = B){
 
   nr = length(mimu)
 
+  np = model$plength
+
   obj_desc = model$obj.desc
 
   para_gmwm = matrix(NA,np,nr)
