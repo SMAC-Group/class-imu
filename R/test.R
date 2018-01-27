@@ -17,9 +17,14 @@
 #' Zt = rnorm(n) + cumsum(rnorm(n, 0, 10^(-3)))
 #' obj = make_wvar_mimu_obj(Xt, Yt, Zt, freq = 100, unit = "s",
 #' sensor.name = "MTiG - Gyro. X", exp.name = c("today", "yesterday", "a few days ago"))
-make_wvar_mimu_obj = function(..., freq, unit = NULL, sensor.name = NULL, exp.name = NULL){
+make_wvar_mimu_obj = function(..., freq, unit = NULL, sensor.name = NULL, exp.name = NULL, for_test = NULL){
 
-  obj_list = list(...)
+  if (is.null(for_test)){
+    obj_list = list(...)
+  }else{
+    obj_list = for_test
+  }
+
   obj_len  = length(obj_list)
   obj = list()
     for (i in 1:obj_len){
