@@ -195,7 +195,7 @@ mgmwm = function(model, mimu){
 
 
 #' @export
-plot.mgwmw = function(obj_list, process.decomp = FALSE){
+plot.mgmwm = function(obj_list, process.decomp = FALSE){
 
   plot(mimu, add_legend = FALSE)
 
