@@ -88,19 +88,19 @@ mgmwm = function(model, mimu){
 
   # Create the near-stationnary test
 
-#   distrib.H0 = rep(NA,B)
-#
-#
-# for (i in 1:B){
-#   sim.H0 = list()
-#   for (j in 1:length(mimu)){
-#     sim.H0[[j]] = gen_gts(N[i],model.hat)
-#   }
-#   simu.obj = make_wvar_mimu_obj(for_test = sim.H0, freq = 100, unit = "s", sensor.name = "MTiG - Gyro. X",
-#                                   exp.name = c("today", "yesterday", "a few days ago"))
-#   distrib.H0[i] = optim(starting.value, mgmwm_obj_function, model = model.hat, mimu = simu.obj)
-# }
-#
+  distrib.H0 = rep(NA,B)
+
+
+for (i in 1:B){
+  sim.H0 = list()
+  for (j in 1:length(mimu)){
+    sim.H0[[j]] = simts::gen_gts(N[j],model.hat)
+  }
+  simu.obj = make_wvar_mimu_obj(for_test = sim.H0, freq = 100, unit = "s", sensor.name = "MTiG - Gyro. X",
+                                  exp.name = c("today", "yesterday", "a few days ago"))
+  distrib.H0[i] = optim(starting.value, mgmwm_obj_function, model = model.hat, mimu = simu.obj)$value
+}
+
 
   # Extact the max number of scales.
 
