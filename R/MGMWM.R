@@ -28,7 +28,7 @@ mgmwm_obj_function = function(theta, model, mimu){
 }
 
 #' @export
-mgmwm = function(model, mimu, stationarity_test = FALSE, B = B){
+mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
   # Check if model is a ts object
   if(!is.mimu(mimu)){
     stop("`mimu` must be created from a `mimu` object. ")
