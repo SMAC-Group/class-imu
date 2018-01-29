@@ -233,10 +233,10 @@ plot.mgmwm = function(obj_list, process.decomp = FALSE, add_legend_mgwmw = TRUE)
 
   legend_names = c("Implied WV", test.optim$model$desc)
   col_legend = c("#F47F24",col_wv)
-  p_cex_legend = c(1.5,rep(0,U))
+  p_cex_legend = c(1.5,rep(NA,U))
 
 
    if (add_legend_mgwmw == TRUE){
-     legend("bottomleft", legend_names, bty = "n", lwd = 1, pt.cex = 1.5, pch = 1, col = col_legend)
+     legend("bottomleft", legend_names, bty = "n", lwd = 1, pt.cex = 1.5, pch = p_cex_legend, col = col_legend)
    }
 }
