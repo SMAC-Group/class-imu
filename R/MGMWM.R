@@ -2,6 +2,8 @@
 #' @export
 mgmwm_obj_function = function(theta, model, mimu){
 
+
+
   # Step 1: compute theoretical WV
   tau = list()
   wv.theo = list()
