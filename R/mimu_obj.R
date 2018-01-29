@@ -71,10 +71,10 @@ plot.mimu = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
                         nb_ticks_y = NULL, legend_position = "bottomleft", ci_wv = NULL, point_cex = NULL,
                         point_pch = NULL, names = NULL, transparency = NULL){
 
-  obj_name = attr(obj, "exp.name")
+  obj_name = attr(obj_list, "exp.name")
   obj_len  = length(obj_list)
-  units = attr(obj, "unit")
-  main = attr(obj, "sensor.name")
+  units = attr(obj_list, "unit")
+  main = attr(obj_list, "sensor.name")
 
   # Check if passed objects are of the class mimu
   #is_mimu = class(obj_list)

@@ -3,6 +3,7 @@
 mgmwm_obj_function = function(theta, model, mimu){
 
 
+  # TRANSFORM e.g sigma = exp(variance)
 
   # Step 1: compute theoretical WV
   tau = list()
@@ -52,6 +53,8 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
 
   obj_desc = model$obj.desc
 
+  theta = model$theta
+
   para_gmwm = matrix(NA,np,nr)
   N = rep(NA,nr)
   for (i in 1:nr){
@@ -60,24 +63,23 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
 
     # Select G
 
-      if(N[i] > 10000){
-        G = 1e6
-      }else{
-        G = 20000
-      }
+    if(N[i] > 10000){
+      G = 1e6
+    }else{
+      G = 20000
+    }
 
     uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
-                model.type = 'imu' , starting = model$starting,
-                p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
-                robust=FALSE, eff = 1)
+                     model.type = 'imu' , starting = model$starting,
+                     p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
+                     robust=FALSE, eff = 1)
     para_gmwm[,i] = uni_gmwm[[1]]
   }
 
   starting_value = apply(para_gmwm, 1, mean)
 
-  starting_value = c(.85, 1, .5, 1e-4)
-
-  out = optim(starting_value, mgmwm_obj_function, model = model.hat, mimu = mimu)
+  # DO INVERSE TRANS. e.g sigma = log(variance)
+  out = optim(starting_value, mgmwm_obj_function, model = model, mimu = mimu)
 
   # Create estimated model object
   model.hat = model
@@ -85,6 +87,8 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
   # Pass on the estimated paramters onto the model.
   model.hat$starting = FALSE
   model.hat$theta = out$par
+
+  # transform e.g. variance = exp(out$par[1])
 
 
   # Create the near-stationnary test
@@ -142,16 +146,16 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
     }
 
     # is white noise?
-   if (desc[i] == "WN"){
+    if (desc[i] == "WN"){
       model.desc.decomp.theo[[i]] =WN(sigma2 = model.hat$theta[counter])
       counter = counter + 1
-   }
+    }
 
-   # is drift?
+    # is drift?
     if (desc[i] == "DR"){
       model.desc.decomp.theo[[i]] = DR(omega = model.hat$theta[counter])
       counter = counter + 1
-   }
+    }
 
     # is quantization noise?
     if (desc[i] == "QN"){
@@ -167,14 +171,13 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
   }
 
   # Compute individual theoretical wv
-
-   decomp.theo = list()
-  for (i in 1:length(mimu)){
+  decomp.theo = list()
+  for (i in 1:n_process){
     model.decomp.theo = model.desc.decomp.theo[[i]]
     decomp.theo[[i]] =  wv_theo(model.decomp.theo, tau.max)
   }
 
-  estimate = t(t(out$par))
+  estimate = as.matrix(out$par)
   rownames(estimate) = model.hat$process.desc
   colnames(estimate) = "Estimates"
 
@@ -224,5 +227,3 @@ plot.mgmwm = function(obj_list, process.decomp = FALSE){
   lines(t(obj_list$scales.max),obj_list$wv.implied, type = "l", lwd = 3, col = "#F47F24", pch = 1, cex = 1.5)
   lines(t(obj_list$scales.max),obj_list$wv.implied, type = "p", lwd = 2, col = "#F47F24", pch = 1, cex = 1.5)
 }
-
-
