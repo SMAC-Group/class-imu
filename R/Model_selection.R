@@ -1,4 +1,4 @@
-
+#' @export
 comb.mat = function(n){
   c = rep(list(1:0), n)
   expand.grid(c)
@@ -177,8 +177,54 @@ model_selection = function(mimu, model, s_test = s_test){
                          robust=FALSE, eff = 1)
         para_gmwm[,k] = uni_gmwm[[1]]
       }
+
       starting_value = apply(para_gmwm, 1, mean)
-      # DO INVERSE TRANS. e.g sigma = log(variance)
+
+
+      # Initialise counter
+      counter = 1
+
+      for (j in 1:np){
+        # is random walk?
+        if (model_est[[i]]$process.desc[j] == "RW"){
+          starting_value[counter] = starting_value[counter]
+          counter = counter + 1
+        }
+
+        # is white noise?
+        if (model_est[[i]]$process.desc[j] == "WN"){
+          starting_value[counter] = log(starting_value[counter])
+          counter = counter + 1
+        }
+
+        # is drift?
+        if (model_est[[i]]$process.desc[j] == "DR"){
+          starting_value[counter] = log(starting_value[counter])
+          counter = counter + 1
+        }
+
+        # is quantization noise?
+        if (model_est[[i]]$process.desc[j] == "QN"){
+          starting_value[counter] = log(starting_value[counter])
+          counter = counter + 1
+        }
+
+        # is AR1?
+        if (model_est[[i]]$process.desc[j] == "AR1"){
+          starting_value[counter] = inv_transform_phi(starting_value[counter])
+          counter = counter + 1
+        }
+
+        # is SIGMA2?
+        if (model_est[[i]]$process.desc[j] == "SIGMA2"){
+          starting_value[counter] = log(starting_value[counter])
+          counter = counter + 1
+        }
+      }
+
+
+
+
       out = optim(starting_value, mgmwm_obj_function, model = model_est[[i]], mimu = mimu)
 
       # transform e.g. variance = exp(out$par[1])
@@ -190,8 +236,50 @@ model_selection = function(mimu, model, s_test = s_test){
       model_test[[i]]$starting = FALSE
       model_test[[i]]$theta = out$par
 
-
       obj_out_sample[d] = mgmwm_obj_function(model_test[[i]]$theta, model_test[[i]], mimu_test)/s_test
+
+
+      # Initialise counter
+      counter = 1
+
+      for (j in 1:np){
+        # is random walk?
+        if (model_test[[i]]$process.desc[j] == "RW"){
+          model_test[[i]]$theta[counter] = model_test[[i]]$theta[counter]
+          counter = counter + 1
+        }
+
+        # is white noise?
+        if (model_test[[i]]$process.desc[j] == "WN"){
+          model_test[[i]]$theta[counter] = exp(model_test[[i]]$theta[counter])
+          counter = counter + 1
+        }
+
+        # is drift?
+        if (model_test[[i]]$process.desc[j] == "DR"){
+          model_test[[i]]$theta[counter] = exp(model_test[[i]]$theta[counter])
+          counter = counter + 1
+        }
+
+        # is quantization noise?
+        if (model_test[[i]]$process.desc[j] == "QN"){
+          model_test[[i]]$theta[counter] = exp(model_test[[i]]$theta[counter])
+          counter = counter + 1
+        }
+
+        # is AR1?
+        if (model_test[[i]]$process.desc[j] == "AR1"){
+          model_test[[i]]$theta[counter] = transform_phi(model_test[[i]]$theta[counter])
+          counter = counter + 1
+        }
+
+        # is SIGMA2?
+        if (model_test[[i]]$process.desc[j] == "SIGMA2"){
+          model_test[[i]]$theta[counter] = exp(model_test[[i]]$theta[counter])
+          counter = counter + 1
+        }
+      }
+
     }
     cv_wvic[i] = mean(obj_out_sample)
   }

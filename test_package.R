@@ -5,6 +5,7 @@ library(classimu)
 
 
 
+
 n1 = 10000
 n2 = 10000
 n3 = 1000000

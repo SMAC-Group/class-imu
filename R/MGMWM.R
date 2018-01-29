@@ -1,21 +1,20 @@
 
-transform_variance = function(sigma2_R){
-  sigma2 = exp(sigma2_R)
-  sigma2
-}
 
+#' @export
 # ----- phi
 transform_phi = function(phi_R){
   phi = 2*(inv_logit(phi_R)-1/2)
   phi
 }
 
+#' @export
 # ----- phi
 inv_transform_phi = function(phi){
   phi_R = log(2/(1-phi)-1)
   phi_R
 }
 
+#' @export
 # ----- weights
 # use inv_logit function to transform weights (to map R -> [0,1])
 inv_logit = function(x){
@@ -25,51 +24,53 @@ inv_logit = function(x){
 
 #' @export
 mgmwm_obj_function = function(theta, model, mimu){
-#
-#   M = length(model$process.desc)
-#
-#   # Initialise counter
-#   counter = 1
-#
-   model$theta = theta
-#
-#   for (j in 1:M){
-#     # is random walk?
-#     if (model$process.desc[j] == "RW"){
-#       theta[counter] = theta[counter]
-#       counter = counter + 1
-#     }
-#
-#     # is white noise?
-#     if (model$process.desc[j] == "WN"){
-#       theta[counter] = exp(theta[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is drift?
-#     if (model$process.desc[j] == "DR"){
-#       theta[counter] = exp(theta[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is quantization noise?
-#     if (model$process.desc[j] == "QN"){
-#       theta[counter] = exp(theta[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is AR1?
-#     if (model$process.desc[j] == "AR1"){
-#       theta[counter] = transform_phi(theta[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is SIGMA2?
-#     if (model$process.desc[j] == "SIGMA2"){
-#       theta[counter] = exp(theta[counter])
-#       counter = counter + 1
-#     }
-#   }
+
+  M = length(model$process.desc)
+
+  # Initialise counter
+  counter = 1
+
+
+
+  for (j in 1:M){
+    # is random walk?
+    if (model$process.desc[j] == "RW"){
+      theta[counter] = theta[counter]
+      counter = counter + 1
+    }
+
+    # is white noise?
+    if (model$process.desc[j] == "WN"){
+      theta[counter] = exp(theta[counter])
+      counter = counter + 1
+    }
+
+    # is drift?
+    if (model$process.desc[j] == "DR"){
+      theta[counter] = exp(theta[counter])
+      counter = counter + 1
+    }
+
+    # is quantization noise?
+    if (model$process.desc[j] == "QN"){
+      theta[counter] = exp(theta[counter])
+      counter = counter + 1
+    }
+
+    # is AR1?
+    if (model$process.desc[j] == "AR1"){
+      theta[counter] = transform_phi(theta[counter])
+      counter = counter + 1
+    }
+
+    # is SIGMA2?
+    if (model$process.desc[j] == "SIGMA2"){
+      theta[counter] = exp(theta[counter])
+      counter = counter + 1
+    }
+  }
+
+  model$theta = theta
 
   # Step 1: compute theoretical WV
   tau = list()
@@ -144,47 +145,47 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
   }
 
   starting_value = apply(para_gmwm, 1, mean)
-#
-#   # Initialise counter
-#   counter = 1
-#
-#   for (j in 1:np){
-#     # is random walk?
-#     if (model$process.desc[j] == "RW"){
-#       starting_value[counter] = starting_value[counter]
-#       counter = counter + 1
-#     }
-#
-#     # is white noise?
-#     if (model$process.desc[j] == "WN"){
-#       starting_value[counter] = log(starting_value[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is drift?
-#     if (model$process.desc[j] == "DR"){
-#       starting_value[counter] = log(starting_value[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is quantization noise?
-#     if (model$process.desc[j] == "QN"){
-#       starting_value[counter] = log(starting_value[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is AR1?
-#     if (model$process.desc[j] == "AR1"){
-#       starting_value[counter] = inv_transform_phi(starting_value[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is SIGMA2?
-#     if (model$process.desc[j] == "SIGMA2"){
-#       starting_value[counter] = log(starting_value[counter])
-#       counter = counter + 1
-#     }
-#   }
+
+  # Initialise counter
+  counter = 1
+
+  for (j in 1:np){
+    # is random walk?
+    if (model$process.desc[j] == "RW"){
+      starting_value[counter] = starting_value[counter]
+      counter = counter + 1
+    }
+
+    # is white noise?
+    if (model$process.desc[j] == "WN"){
+      starting_value[counter] = log(starting_value[counter])
+      counter = counter + 1
+    }
+
+    # is drift?
+    if (model$process.desc[j] == "DR"){
+      starting_value[counter] = log(starting_value[counter])
+      counter = counter + 1
+    }
+
+    # is quantization noise?
+    if (model$process.desc[j] == "QN"){
+      starting_value[counter] = log(starting_value[counter])
+      counter = counter + 1
+    }
+
+    # is AR1?
+    if (model$process.desc[j] == "AR1"){
+      starting_value[counter] = inv_transform_phi(starting_value[counter])
+      counter = counter + 1
+    }
+
+    # is SIGMA2?
+    if (model$process.desc[j] == "SIGMA2"){
+      starting_value[counter] = log(starting_value[counter])
+      counter = counter + 1
+    }
+  }
 
   out = optim(starting_value, mgmwm_obj_function, model = model, mimu = mimu)
 
@@ -194,47 +195,47 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
   # Pass on the estimated paramters onto the model.
   model.hat$starting = FALSE
   model.hat$theta = out$par
-#
-#   # Initialise counter
-#   counter = 1
-#
-#   for (j in 1:np){
-#     # is random walk?
-#     if (model$process.desc[j] == "RW"){
-#       model.hat$theta[counter] = model.hat$theta[counter]
-#       counter = counter + 1
-#     }
-#
-#     # is white noise?
-#     if (model$process.desc[j] == "WN"){
-#       model.hat$theta[counter] = exp(model.hat$theta[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is drift?
-#     if (model$process.desc[j] == "DR"){
-#       model.hat$theta[counter] = exp(model.hat$theta[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is quantization noise?
-#     if (model$process.desc[j] == "QN"){
-#       model.hat$theta[counter] = exp(model.hat$theta[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is AR1?
-#     if (model$process.desc[j] == "AR1"){
-#       model.hat$theta[counter] = transform_phi(model.hat$theta[counter])
-#       counter = counter + 1
-#     }
-#
-#     # is SIGMA2?
-#     if (model$process.desc[j] == "SIGMA2"){
-#       model.hat$theta[counter] = exp(model.hat$theta[counter])
-#       counter = counter + 1
-#     }
-#   }
+
+  # Initialise counter
+  counter = 1
+
+  for (j in 1:np){
+    # is random walk?
+    if (model$process.desc[j] == "RW"){
+      model.hat$theta[counter] = model.hat$theta[counter]
+      counter = counter + 1
+    }
+
+    # is white noise?
+    if (model$process.desc[j] == "WN"){
+      model.hat$theta[counter] = exp(model.hat$theta[counter])
+      counter = counter + 1
+    }
+
+    # is drift?
+    if (model$process.desc[j] == "DR"){
+      model.hat$theta[counter] = exp(model.hat$theta[counter])
+      counter = counter + 1
+    }
+
+    # is quantization noise?
+    if (model$process.desc[j] == "QN"){
+      model.hat$theta[counter] = exp(model.hat$theta[counter])
+      counter = counter + 1
+    }
+
+    # is AR1?
+    if (model$process.desc[j] == "AR1"){
+      model.hat$theta[counter] = transform_phi(model.hat$theta[counter])
+      counter = counter + 1
+    }
+
+    # is SIGMA2?
+    if (model$process.desc[j] == "SIGMA2"){
+      model.hat$theta[counter] = exp(model.hat$theta[counter])
+      counter = counter + 1
+    }
+  }
 
 
   # Create the near-stationnary test
@@ -262,8 +263,8 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
   # extract p_value from the test
   p_value = sum(distrib.H0 >= out$value)/B
 
-  # decision rules from the test
-  if(p_value >= alpha_near_test)
+  # # decision rules from the test
+  # if(p_value >= alpha_near_test)
 
 
   # Extact the max number of scales.
