@@ -19,7 +19,9 @@ Imports:
     scales, 
     grDevices, 
     graphics,
-    gmwm
+    gmwm,
+    shiny,
+    shinyjs
 RoxygenNote: 6.0.1
 Suggests: 
     knitr,
