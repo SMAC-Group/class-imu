@@ -1,9 +1,29 @@
 
+transform_variance = function(sigma2_R){
+  sigma2 = exp(sigma2_R)
+  sigma2
+}
+
+# ----- phi
+transform_phi = function(phi_R){
+  phi = 2*(inv_logit(phi_R)-1/2)
+  phi
+}
+
+# ----- weights
+# use inv_logit function to transform weights (to map R -> [0,1])
+inv_logit = function(x){
+  exp(x)/(1 + exp(x))
+}
+
+
 #' @export
 mgmwm_obj_function = function(theta, model, mimu){
 
 
   # TRANSFORM e.g sigma = exp(variance)
+
+
 
   # Step 1: compute theoretical WV
   tau = list()
@@ -210,7 +230,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
 #' @export
 plot.mgmwm = function(obj_list, process.decomp = FALSE, add_legend_mgwmw = TRUE){
 
-  mimu_obj_name = attr(test.optim[[7]], "exp.name")
+  mimu_obj_name = attr(obj_list[[7]], "exp.name")
   mimu_obj_name = paste("Empirical WV", mimu_obj_name)
 
 
@@ -231,7 +251,7 @@ plot.mgmwm = function(obj_list, process.decomp = FALSE, add_legend_mgwmw = TRUE)
   lines(t(obj_list$scales.max),obj_list$wv.implied, type = "l", lwd = 3, col = "#F47F24", pch = 1, cex = 1.5)
   lines(t(obj_list$scales.max),obj_list$wv.implied, type = "p", lwd = 2, col = "#F47F24", pch = 1, cex = 1.5)
 
-  legend_names = c("Implied WV", test.optim$model$desc)
+  legend_names = c("Implied WV", obj_list$model$desc)
   col_legend = c("#F47F24",col_wv)
   p_cex_legend = c(1.5,rep(NA,U))
 
