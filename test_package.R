@@ -10,7 +10,7 @@ n2 = 10000
 n3 = 1000000
 
 model1 =  AR1(.85,sigma2 = 1 ) + WN(.5) + RW (1e-4)
-model = 3*AR1() + WN() + RW ()
+model = AR1() + WN() + RW ()
 
 
 Xt =  gen_gts(n1, model1)
