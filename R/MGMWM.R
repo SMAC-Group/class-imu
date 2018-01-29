@@ -10,6 +10,7 @@ mgmwm_obj_function = function(theta, model, mimu){
   obj_len  = length(mimu)
   for (i in 1:obj_len) {
     tau[[i]] = 2^(1:length(mimu[[i]]$scales))
+    model$theta = theta
     wv.theo[[i]] = wv_theo(model, tau[[i]])
   }
 
