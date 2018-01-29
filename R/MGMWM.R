@@ -191,9 +191,9 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
                        model = model,
                        model.hat = model.hat,
                        scales.max = scales.max,
-                       mimu = mimu,
                        p_value = p_value,
-                       wv.implied = wv.implied), class = "mgmwm")
+                       wv.implied = wv.implied,
+                       mimu = mimu), class = "mgmwm")
   invisible(out)
 }
 
@@ -208,7 +208,11 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
 
 
 #' @export
-plot.mgmwm = function(obj_list, process.decomp = FALSE){
+plot.mgmwm = function(obj_list, process.decomp = FALSE, add_legend_mgwmw = TRUE){
+
+  mimu_obj_name = attr(test.optim[[7]], "exp.name")
+  mimu_obj_name = paste("Empirical WV", mimu_obj_name)
+
 
   plot(mimu, add_legend = FALSE)
 
@@ -226,4 +230,13 @@ plot.mgmwm = function(obj_list, process.decomp = FALSE){
   # Plot implied WV
   lines(t(obj_list$scales.max),obj_list$wv.implied, type = "l", lwd = 3, col = "#F47F24", pch = 1, cex = 1.5)
   lines(t(obj_list$scales.max),obj_list$wv.implied, type = "p", lwd = 2, col = "#F47F24", pch = 1, cex = 1.5)
+
+  legend_names = c("Implied WV", test.optim$model$desc)
+  col_legend = c("#F47F24",col_wv)
+  p_cex_legend = c(1.5,rep(0,U))
+
+
+   if (add_legend_mgwmw == TRUE){
+     legend("bottomleft", legend_names, bty = "n", lwd = 1, pt.cex = 1.5, pch = 1, col = col_legend)
+   }
 }
