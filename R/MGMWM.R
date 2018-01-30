@@ -30,10 +30,12 @@ mgmwm_obj_function = function(theta, model, mimu){
   # Initialise counter
   counter = 1
 
+
+
   for (j in 1:M){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      theta[counter] = exp(theta[counter])
+      theta[counter] = theta[counter]
       counter = counter + 1
     }
 
@@ -98,7 +100,7 @@ mgmwm_obj_function = function(theta, model, mimu){
 }
 
 #' @export
-mgmwm = function(model, mimu, stationarity_test = FALSE, B = 50, alpha_near_test = 0.05){
+mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, alpha_near_test = 0.05){
   # Check if model is a ts object
   if(!is.mimu(mimu)){
     stop("`mimu` must be created from a `mimu` object. ")
@@ -126,7 +128,23 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 50, alpha_near_test
     N[i] = length(mimu[[i]]$data)
   }
 
+  if (fast == TRUE){
+    index = which.max(N)
+    N.fast = N[index]
 
+    if(N.fast > 10000){
+      G = 1e6
+    }else{
+      G = 20000
+    }
+
+    data = mimu[[index]]$data
+    uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
+                     model.type = 'imu' , starting = model$starting,
+                     p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
+                     robust=FALSE, eff = 1)
+    starting_value = uni_gmwm[[1]]
+  }else{
     para_gmwm = matrix(NA,np,nr)
     for (i in 1:nr){
       data = mimu[[i]]$data
@@ -144,6 +162,8 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 50, alpha_near_test
                        p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
                        robust=FALSE, eff = 1)
       para_gmwm[,i] = uni_gmwm[[1]]
+    }
+
     starting_value = apply(para_gmwm, 1, mean)
   }
 
@@ -154,7 +174,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 50, alpha_near_test
   for (j in 1:np){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      starting_value[counter] = log(starting_value[counter])
+      starting_value[counter] = starting_value[counter]
       counter = counter + 1
     }
 
@@ -206,7 +226,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 50, alpha_near_test
   for (j in 1:np){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      model.hat$theta[counter] = exp(model.hat$theta[counter])
+      model.hat$theta[counter] = model.hat$theta[counter]
       counter = counter + 1
     }
 
@@ -252,6 +272,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 50, alpha_near_test
     }else{
       B = B
     }
+
     for (i in 1:B){
       sim.H0 = list()
       for (j in 1:nr){
@@ -259,19 +280,21 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 50, alpha_near_test
       }
       simu.obj = make_wvar_mimu_obj(for_test = sim.H0, freq = 100, unit = "s", sensor.name = "MTiG - Gyro. X",
                                     exp.name = c("today", "yesterday", "a few days ago"))
-      distrib.H0[i] = optim(out$par, mgmwm_obj_function, model = model.hat, mimu = simu.obj)$value
+      distrib.H0[i] = optim(model.hat$theta, mgmwm_obj_function, model = model.hat, mimu = simu.obj)$value
     }
-  }
 
+    # extract p_value from the test
+    p_value = sum(distrib.H0 >= out$value)/B
 
-  # extract p_value from the test
-  p_value = sum(distrib.H0 >= out$value)/B
-
-  # decision rules from the test
-  if(p_value >= alpha_near_test){
-    test_res = " Data are stationary"
+    # decision rules from the test
+    if(p_value >= alpha_near_test){
+      test_res = " Data are stationary"
+    }else{
+      test_res = " Data are nearly-stationary"
+    }
   }else{
-    test_res = " Data are nearly-stationary"
+    test_rest = NA
+    p_value = NA
   }
 
 
@@ -355,7 +378,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 50, alpha_near_test
                        scales.max = scales.max,
                        p_value = p_value,
                        wv.implied = wv.implied,
-                       test_res = test_res,
+                       test.result = test_rest,
                        mimu = mimu), class = "mgmwm")
   invisible(out)
 }
