@@ -23,7 +23,7 @@ mimu = make_wvar_mimu_obj(Wt ,Xt, Yt, Zt, freq = 100, unit = "s",
          sensor.name = "MTiG - Gyro. X", exp.name = c("today", "yesterday", "a few days ago"))
 
 
-test.optim = mgmwm(model, mimu, stationarity_test = FALSE, B = 30)
+test.optim = mgmwm(model, mimu, stationarity_test = T, B = 30)
 
 
 plot(test.optim, process.decomp = TRUE)

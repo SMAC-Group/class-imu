@@ -30,12 +30,10 @@ mgmwm_obj_function = function(theta, model, mimu){
   # Initialise counter
   counter = 1
 
-
-
   for (j in 1:M){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      theta[counter] = theta[counter]
+      theta[counter] = exp(theta[counter])
       counter = counter + 1
     }
 
@@ -100,7 +98,7 @@ mgmwm_obj_function = function(theta, model, mimu){
 }
 
 #' @export
-mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE){
+mgmwm = function(model, mimu, stationarity_test = FALSE, B = 50, alpha_near_test = 0.05){
   # Check if model is a ts object
   if(!is.mimu(mimu)){
     stop("`mimu` must be created from a `mimu` object. ")
@@ -123,26 +121,14 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE){
 
   theta = model$theta
 
-  if (fast == TRUE){
-    N = length(mimu[[1]]$data)
+  N = rep(NA,nr)
+  for (i in 1:nr){
+    N[i] = length(mimu[[i]]$data)
+  }
 
-    if(N > 10000){
-      G = 1e6
-    }else{
-      G = 20000
-    }
 
-    data = mimu[[1]]$data
-    uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
-                     model.type = 'imu' , starting = model$starting,
-                     p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
-                     robust=FALSE, eff = 1)
-    starting_value = uni_gmwm[[1]]
-  }else{
     para_gmwm = matrix(NA,np,nr)
-    N = rep(NA,nr)
     for (i in 1:nr){
-      N[i] = length(mimu[[i]]$data)
       data = mimu[[i]]$data
 
       # Select G
@@ -158,8 +144,6 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE){
                        p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
                        robust=FALSE, eff = 1)
       para_gmwm[,i] = uni_gmwm[[1]]
-    }
-
     starting_value = apply(para_gmwm, 1, mean)
   }
 
@@ -170,7 +154,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE){
   for (j in 1:np){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      starting_value[counter] = starting_value[counter]
+      starting_value[counter] = log(starting_value[counter])
       counter = counter + 1
     }
 
@@ -214,13 +198,15 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE){
   model.hat$starting = FALSE
   model.hat$theta = out$par
 
+
+
   # Initialise counter
   counter = 1
 
   for (j in 1:np){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      model.hat$theta[counter] = model.hat$theta[counter]
+      model.hat$theta[counter] = exp(model.hat$theta[counter])
       counter = counter + 1
     }
 
@@ -273,7 +259,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE){
       }
       simu.obj = make_wvar_mimu_obj(for_test = sim.H0, freq = 100, unit = "s", sensor.name = "MTiG - Gyro. X",
                                     exp.name = c("today", "yesterday", "a few days ago"))
-      distrib.H0[i] = optim(starting_value, mgmwm_obj_function, model = model, mimu = simu.obj)$value
+      distrib.H0[i] = optim(out$par, mgmwm_obj_function, model = model.hat, mimu = simu.obj)$value
     }
   }
 
@@ -281,8 +267,12 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE){
   # extract p_value from the test
   p_value = sum(distrib.H0 >= out$value)/B
 
-  # # decision rules from the test
-  # if(p_value >= alpha_near_test)
+  # decision rules from the test
+  if(p_value >= alpha_near_test){
+    test_res = " Data are stationary"
+  }else{
+    test_res = " Data are nearly-stationary"
+  }
 
 
   # Extact the max number of scales.
@@ -365,6 +355,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE){
                        scales.max = scales.max,
                        p_value = p_value,
                        wv.implied = wv.implied,
+                       test_res = test_res,
                        mimu = mimu), class = "mgmwm")
   invisible(out)
 }
@@ -403,7 +394,7 @@ plot.mgmwm = function(obj_list, process.decomp = FALSE, add_legend_mgwmw = TRUE,
   lines(t(obj_list$scales.max),obj_list$wv.implied, type = "p", lwd = 2, col = "#F47F24", pch = 1, cex = 1.5)
 
   if(process.decomp == TRUE){
-    legend_names = c("Implied WV", obj_list$model$desc)
+    legend_names = c("Implied WV", obj_list$model.hat$desc)
     col_legend = c("#F47F24",col_wv)
     p_cex_legend = c(1.5,rep(NA,U))
   }else{

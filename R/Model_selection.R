@@ -157,73 +157,70 @@ model_selection = function(mimu, model, s_test = s_test){
         mimu_est[[s]] = mimu[[pair[d,s]]]
       }
 
-      para_gmwm = matrix(NA,np,s_test)
-      N = rep(NA,s_test)
-      for (k in 1:s_test){
-        N[k] = length(mimu_est[[k]]$data)
-        data = mimu_est[[k]]$data
+      if(d == 1){
+        para_gmwm = matrix(NA,np,s_test)
+        N = rep(NA,s_test)
+        for (k in 1:s_test){
+          N[k] = length(mimu_est[[k]]$data)
+          data = mimu_est[[k]]$data
 
-        # Select G
+          # Select G
 
-        if(N[k] > 10000){
-          G = 1e6
-        }else{
-          G = 20000
+          if(N[k] > 10000){
+            G = 1e6
+          }else{
+            G = 20000
+          }
+
+          uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
+                           model.type = 'imu' , starting = model_est[[i]]$starting,
+                           p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
+                           robust=FALSE, eff = 1)
+          para_gmwm[,k] = uni_gmwm[[1]]
         }
+        starting_value = apply(para_gmwm, 1, mean)
 
-        uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
-                         model.type = 'imu' , starting = model_est[[i]]$starting,
-                         p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
-                         robust=FALSE, eff = 1)
-        para_gmwm[,k] = uni_gmwm[[1]]
+        # Initialise counter
+        counter = 1
+
+        for (j in 1:np){
+          # is random walk?
+          if (model_est[[i]]$process.desc[j] == "RW"){
+            starting_value[counter] = starting_value[counter]
+            counter = counter + 1
+          }
+
+          # is white noise?
+          if (model_est[[i]]$process.desc[j] == "WN"){
+            starting_value[counter] = log(starting_value[counter])
+            counter = counter + 1
+          }
+
+          # is drift?
+          if (model_est[[i]]$process.desc[j] == "DR"){
+            starting_value[counter] = log(starting_value[counter])
+            counter = counter + 1
+          }
+
+          # is quantization noise?
+          if (model_est[[i]]$process.desc[j] == "QN"){
+            starting_value[counter] = log(starting_value[counter])
+            counter = counter + 1
+          }
+
+          # is AR1?
+          if (model_est[[i]]$process.desc[j] == "AR1"){
+            starting_value[counter] = inv_transform_phi(starting_value[counter])
+            counter = counter + 1
+          }
+
+          # is SIGMA2?
+          if (model_est[[i]]$process.desc[j] == "SIGMA2"){
+            starting_value[counter] = log(starting_value[counter])
+            counter = counter + 1
+          }
+        }
       }
-
-      starting_value = apply(para_gmwm, 1, mean)
-
-
-      # Initialise counter
-      counter = 1
-
-      for (j in 1:np){
-        # is random walk?
-        if (model_est[[i]]$process.desc[j] == "RW"){
-          starting_value[counter] = starting_value[counter]
-          counter = counter + 1
-        }
-
-        # is white noise?
-        if (model_est[[i]]$process.desc[j] == "WN"){
-          starting_value[counter] = log(starting_value[counter])
-          counter = counter + 1
-        }
-
-        # is drift?
-        if (model_est[[i]]$process.desc[j] == "DR"){
-          starting_value[counter] = log(starting_value[counter])
-          counter = counter + 1
-        }
-
-        # is quantization noise?
-        if (model_est[[i]]$process.desc[j] == "QN"){
-          starting_value[counter] = log(starting_value[counter])
-          counter = counter + 1
-        }
-
-        # is AR1?
-        if (model_est[[i]]$process.desc[j] == "AR1"){
-          starting_value[counter] = inv_transform_phi(starting_value[counter])
-          counter = counter + 1
-        }
-
-        # is SIGMA2?
-        if (model_est[[i]]$process.desc[j] == "SIGMA2"){
-          starting_value[counter] = log(starting_value[counter])
-          counter = counter + 1
-        }
-      }
-
-
-
 
       out = optim(starting_value, mgmwm_obj_function, model = model_est[[i]], mimu = mimu)
 
@@ -279,9 +276,12 @@ model_selection = function(mimu, model, s_test = s_test){
           counter = counter + 1
         }
       }
-
+      if(d == 1){
+        starting_values = model_test[[1]]$theta
+      }
     }
     cv_wvic[i] = mean(obj_out_sample)
+
   }
   mod_selected = which.min(cv_wvic)
 
