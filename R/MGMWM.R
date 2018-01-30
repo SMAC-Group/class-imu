@@ -100,7 +100,7 @@ mgmwm_obj_function = function(theta, model, mimu){
 }
 
 #' @export
-mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
+mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE){
   # Check if model is a ts object
   if(!is.mimu(mimu)){
     stop("`mimu` must be created from a `mimu` object. ")
@@ -123,28 +123,46 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
 
   theta = model$theta
 
-  para_gmwm = matrix(NA,np,nr)
-  N = rep(NA,nr)
-  for (i in 1:nr){
-    N[i] = length(mimu[[i]]$data)
-    data = mimu[[i]]$data
+  if (fast == TRUE){
+    N = length(mimu[[1]]$data)
 
-    # Select G
-
-    if(N[i] > 10000){
+    if(N > 10000){
       G = 1e6
     }else{
       G = 20000
     }
 
+    data = mimu[[1]]$data
     uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
                      model.type = 'imu' , starting = model$starting,
                      p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
                      robust=FALSE, eff = 1)
-    para_gmwm[,i] = uni_gmwm[[1]]
+    starting_value = uni_gmwm[[1]]
+  }else{
+    para_gmwm = matrix(NA,np,nr)
+    N = rep(NA,nr)
+    for (i in 1:nr){
+      N[i] = length(mimu[[i]]$data)
+      data = mimu[[i]]$data
+
+      # Select G
+
+      if(N[i] > 10000){
+        G = 1e6
+      }else{
+        G = 20000
+      }
+
+      uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
+                       model.type = 'imu' , starting = model$starting,
+                       p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
+                       robust=FALSE, eff = 1)
+      para_gmwm[,i] = uni_gmwm[[1]]
+    }
+
+    starting_value = apply(para_gmwm, 1, mean)
   }
 
-  starting_value = apply(para_gmwm, 1, mean)
 
   # Initialise counter
   counter = 1
@@ -331,7 +349,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
     decomp.theo[[i]] =  wv_theo(model.decomp.theo, tau.max)
   }
 
-  estimate = as.matrix(out$par)
+  estimate = as.matrix(model.hat$theta)
   rownames(estimate) = model.hat$process.desc
   colnames(estimate) = "Estimates"
 
@@ -362,20 +380,19 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500){
 
 
 #' @export
-plot.mgmwm = function(obj_list, process.decomp = FALSE, add_legend_mgwmw = TRUE){
+plot.mgmwm = function(obj_list, process.decomp = FALSE, add_legend_mgwmw = TRUE, legend_pos = NULL){
 
   mimu_obj_name = attr(obj_list[[7]], "exp.name")
   mimu_obj_name = paste("Empirical WV", mimu_obj_name)
 
 
-  plot(mimu, add_legend = FALSE)
+  plot(obj_list$mimu, add_legend = FALSE)
+  U = length(obj_list$decomp.theo)
+  col_wv = hcl(h = seq(100, 375, length = U + 1), l = 65, c = 200, alpha = 1)[1:U]
 
   if(process.decomp == TRUE){
     # Number of Latent proces
-    U = length(obj_list$decomp.theo)
 
-    hues = seq(100, 375, length = U + 1)
-    col_wv = hcl(h = hues, l = 65, c = 200, alpha = 1)
     # Plot lines of decomp theo
     for (i in 1:U){
       lines(t(obj_list$scales.max), obj_list$decomp.theo[[i]], col = col_wv[i])
@@ -385,12 +402,20 @@ plot.mgmwm = function(obj_list, process.decomp = FALSE, add_legend_mgwmw = TRUE)
   lines(t(obj_list$scales.max),obj_list$wv.implied, type = "l", lwd = 3, col = "#F47F24", pch = 1, cex = 1.5)
   lines(t(obj_list$scales.max),obj_list$wv.implied, type = "p", lwd = 2, col = "#F47F24", pch = 1, cex = 1.5)
 
-  legend_names = c("Implied WV", obj_list$model$desc)
-  col_legend = c("#F47F24",col_wv)
-  p_cex_legend = c(1.5,rep(NA,U))
+  if(process.decomp == TRUE){
+    legend_names = c("Implied WV", obj_list$model$desc)
+    col_legend = c("#F47F24",col_wv)
+    p_cex_legend = c(1.5,rep(NA,U))
+  }else{
+    legend_names = c("Implied WV")
+    col_legend = c("#F47F24")
+    p_cex_legend = c(1.5)
+  }
 
-
+  if (is.null(legend_pos)){
+    legend_pos = "bottomleft"
+  }
    if (add_legend_mgwmw == TRUE){
-     legend("bottomleft", legend_names, bty = "n", lwd = 1, pt.cex = 1.5, pch = p_cex_legend, col = col_legend)
+     legend(legend_pos, legend_names, bty = "n", lwd = 1, pt.cex = 1.5, pch = p_cex_legend, col = col_legend)
    }
 }

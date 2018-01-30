@@ -111,6 +111,7 @@ column(4,
 column(4,
 
        checkboxInput("process_decomp", "Show latent processes:", TRUE),
+       checkboxInput("fast", "Fast computation:", FALSE),
 
        br(),
 
@@ -298,7 +299,7 @@ server <- function(input, output, session) {
       if (is.null(input$num)){
         input$num = 10^5
       }
-      v$gmwm = mgmwm(model, Xt, stationarity_test = FALSE, B = 30)
+      v$gmwm = mgmwm(model = model, mimu = Xt, stationarity_test = FALSE, B = 30, fast = input$fast)
       v$form = v$gmwm
       v$first_gmwm = FALSE
 
