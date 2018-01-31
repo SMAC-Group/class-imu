@@ -186,7 +186,7 @@ model_selection = function(mimu, model, s_test = s_test){
         for (j in 1:np){
           # is random walk?
           if (model_est[[i]]$process.desc[j] == "RW"){
-            starting_value[counter] = starting_value[counter]
+            starting_value[counter] = log(starting_value[counter])
             counter = counter + 1
           }
 
@@ -242,7 +242,7 @@ model_selection = function(mimu, model, s_test = s_test){
       for (j in 1:np){
         # is random walk?
         if (model_test[[i]]$process.desc[j] == "RW"){
-          model_test[[i]]$theta[counter] = model_test[[i]]$theta[counter]
+          model_test[[i]]$theta[counter] = exp(model_test[[i]]$theta[counter])
           counter = counter + 1
         }
 

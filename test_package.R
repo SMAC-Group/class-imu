@@ -3,8 +3,12 @@ library(gmwm)
 library(wv)
 library(classimu)
 
+library(imudata)
+data(MTIG710imu1kHzGyro)
+class(MTIG710imu1kHzGyro)
+class(KVH1750imu1kHzAcc)
 
-
+mimu = MTIG710imu1kHzGyro[[1]]
 
 n1 = 10000
 n2 = 10000

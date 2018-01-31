@@ -14,7 +14,13 @@ library(classimu)
 library(wv)
 library(gmwm)
 
-data(kvh)
+data(KVH1750imu1kHzAcc)
+data(KVH1750imu1kHzGyro)
+data(MTIG710imu1kHzAcc)
+data(MTIG710imu1kHzGyro)
+data(KVH1750imuAcc)
+data(KVH1750imuGyro)
+
 const.RENDER_PLOT_WIDTH = 1000
 const.RENDER_PLOT_HEIGHT = 600
 const.RENDER_PLOT_RES = 100 # default is 72
@@ -39,7 +45,7 @@ ui <- shinyUI(fluidPage(
   tags$style(type='text/css', '#summ {background-color: rgba(0,0,200,0.02); color: black; width: 500px; font-size: 14px;}'),
 
 
-  title = "mGMWM GUI",
+  title = "MGMWM GUI",
   tabsetPanel(id = "tabs",
               tabPanel("Model Data", plotOutput(outputId = "plot", height = const.FIGURE_PLOT_HEIGHT)),
               tabPanel("Selected Sensor", plotOutput(outputId = "plot2", height = const.FIGURE_PLOT_HEIGHT)),
@@ -70,7 +76,12 @@ ui <- shinyUI(fluidPage(
 
 
              selectInput("imu_obj", "Select IMU file:",
-                         c("kvh" = "kvh"),
+                         c("KVH 1750 imu 1kHz Accelerometers"="KVH1750imu1kHzAcc",
+                           "KVH 1750 imu 1kHz Gyroscopes"="KVH1750imu1kHzGyro",
+                           "MTI-G-710 imu 1kHz Accelerometers"="MTIG710imu1kHzAcc",
+                           "MTI-G-710 imu 1kHz Gyroscopes"="MTIG710imu1kHzGyro",
+                           "KVH 1750 imu 100 Hz Accelerometers"="KVH1750imuAcc",
+                           "KVH 1750 imu 100 Hz Gyroscopes"="KVH1750imuGyro"),
                          selected = 1),
 
             selectInput("sensors", "Select sensor", c("1"="1","2"="2", selected = 1)),
@@ -112,19 +123,20 @@ column(4,
 
        checkboxInput("process_decomp", "Show latent processes:", TRUE),
        checkboxInput("fast", "Fast computation:", FALSE),
+       checkboxInput("test", "Near-stationarity test:", FALSE),
 
        br(),
 
        checkboxGroupInput("summary_plot", label = "Summary options:",
-                          c("Show CI of parameters" = "ci"),
+                          c("Show test result" = "test_result"),
                           selected = c("sum")),
-       checkboxInput("edit_intern", label = "Edit Optimization Parameters", value = FALSE),
 
        conditionalPanel(
          condition = "input.edit_intern == 1",
          numericInput("num", label = "Number of Simu. for Starting Values", value = 10^5),
          numericInput("seed", label = "Simulation seed", value = 1982)
        )
+
 )
 )
 ))
@@ -136,7 +148,6 @@ server <- function(input, output, session) {
   v <- reactiveValues(plot = FALSE,
                       fit = FALSE,
                       gmwm = NULL,
-                      all = NULL,
                       form = NULL,
                       freq = 100,
                       first_gmwm = NULL,
@@ -145,14 +156,6 @@ server <- function(input, output, session) {
                       sensor_column = NULL,
                       overlap_datasheet = FALSE,
                       y_label_with_dataunits = NA,
-
-                      actual_datasheet_BI_parameter = NA,
-                      actual_datasheet_BIF0_parameter = NA,
-                      actual_datasheet_QN_parameter = NA,
-                      actual_datasheet_SIGMA2_GM_parameter = NA,
-                      actual_datasheet_BETA_GM_parameter = NA,
-                      actual_datasheet_RW_parameter = NA,
-                      actual_datasheet_DR_parameter = NA,
 
 
                       first_time_plotting_6_pack = TRUE,
@@ -299,7 +302,7 @@ server <- function(input, output, session) {
       if (is.null(input$num)){
         input$num = 10^5
       }
-      v$gmwm = mgmwm(model = model, mimu = Xt, stationarity_test = FALSE, B = 30, fast = input$fast)
+      v$gmwm = mgmwm(model = model, mimu = Xt, stationarity_test = input$test, B = 30, fast = input$fast)
       v$form = v$gmwm
       v$first_gmwm = FALSE
 
@@ -324,7 +327,7 @@ server <- function(input, output, session) {
     #}else{
     #  par(mfrow = c(1,3))
     #}
-    par(mfrow = c(2,3))
+    par(mfrow = c(1,3))
     for (i in 1:N){
       if (i == 1){
         plot(v$all[[i]])
@@ -334,7 +337,29 @@ server <- function(input, output, session) {
 
     }
   })
+
+  output$summ <- renderPrint({
+    if (v$fit){
+
+      summmary_of_gmwm = list(v$form$estimate, v$form$obj.value, v$form$p_value, v$form$test_res)
+
+      if("test_result" %in% input$summary_plot){
+        # summmary_of_gmwm
+        cat("Objective Function: ", v$form$obj.value, "\n")
+        cat("P-value: ", v$form$p_value, "\n\n")
+        cat("Test Result: ", v$form$test.result, "\n\n\n")
+        v$form$estimate
+      } else {
+        cat("Objective Function: ", v$form$obj.value, "\n")
+        v$form$obj.value
+        v$form$estimate
+
+      }
+    }
+  })
 }
+
+
 
 # Run the application
 shinyApp(ui = ui, server = server)

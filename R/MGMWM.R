@@ -30,12 +30,10 @@ mgmwm_obj_function = function(theta, model, mimu){
   # Initialise counter
   counter = 1
 
-
-
   for (j in 1:M){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      theta[counter] = theta[counter]
+      theta[counter] = exp(theta[counter])
       counter = counter + 1
     }
 
@@ -100,7 +98,7 @@ mgmwm_obj_function = function(theta, model, mimu){
 }
 
 #' @export
-mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, alpha_near_test = 0.05){
+mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, alpha_near_test = 0.05){
   # Check if model is a ts object
   if(!is.mimu(mimu)){
     stop("`mimu` must be created from a `mimu` object. ")
@@ -174,7 +172,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, a
   for (j in 1:np){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      starting_value[counter] = starting_value[counter]
+      starting_value[counter] = log(starting_value[counter])
       counter = counter + 1
     }
 
@@ -226,7 +224,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, a
   for (j in 1:np){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      model.hat$theta[counter] = model.hat$theta[counter]
+      model.hat$theta[counter] = exp(model.hat$theta[counter])
       counter = counter + 1
     }
 
@@ -280,7 +278,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, a
       }
       simu.obj = make_wvar_mimu_obj(for_test = sim.H0, freq = 100, unit = "s", sensor.name = "MTiG - Gyro. X",
                                     exp.name = c("today", "yesterday", "a few days ago"))
-      distrib.H0[i] = optim(model.hat$theta, mgmwm_obj_function, model = model.hat, mimu = simu.obj)$value
+      distrib.H0[i] = optim(out$par, mgmwm_obj_function, model = model.hat, mimu = simu.obj)$value
     }
 
     # extract p_value from the test
@@ -293,7 +291,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, a
       test_res = " Data are nearly-stationary"
     }
   }else{
-    test_rest = NA
+    test_res = NA
     p_value = NA
   }
 
@@ -378,7 +376,7 @@ mgmwm = function(model, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, a
                        scales.max = scales.max,
                        p_value = p_value,
                        wv.implied = wv.implied,
-                       test.result = test_rest,
+                       test.result = test_res,
                        mimu = mimu), class = "mgmwm")
   invisible(out)
 }
