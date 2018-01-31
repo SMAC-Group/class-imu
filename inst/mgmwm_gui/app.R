@@ -50,6 +50,7 @@ ui <- shinyUI(fluidPage(
               tabPanel("Model Data", plotOutput(outputId = "plot", height = const.FIGURE_PLOT_HEIGHT)),
               tabPanel("Selected Sensor", plotOutput(outputId = "plot2", height = const.FIGURE_PLOT_HEIGHT)),
               tabPanel("Summary", verbatimTextOutput(outputId = "summ", placeholder = FALSE)),
+              tabPanel("Tutorial", htmlOutput("tuto")),
               tabPanel("Help",
                        # fluidPage("cluster"),
                        h4("Help Tab" ),
@@ -121,9 +122,9 @@ column(4,
 
 column(4,
 
-       checkboxInput("process_decomp", "Show latent processes:", TRUE),
-       checkboxInput("fast", "Fast computation:", FALSE),
-       checkboxInput("test", "Near-stationarity test:", FALSE),
+       checkboxInput("process_decomp", "Show latent processes", TRUE),
+       checkboxInput("fast", "Fast computation", FALSE),
+       checkboxInput("test", "Near-stationarity test", FALSE),
 
        br(),
 
@@ -353,9 +354,13 @@ server <- function(input, output, session) {
         cat("Objective Function: ", v$form$obj.value, "\n")
         v$form$obj.value
         v$form$estimate
-
       }
     }
+  })
+
+
+  output$tuto <- renderUI({
+    tags$iframe(src = "https://www.youtube.com/embed/HPPj6viIBmU", height=400, width=600)
   })
 }
 
