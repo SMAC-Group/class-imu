@@ -13,6 +13,7 @@ library(imudata)
 library(classimu)
 library(wv)
 library(gmwm)
+library(simts)
 
 data(KVH1750imu1kHzAcc)
 data(KVH1750imu1kHzGyro)
