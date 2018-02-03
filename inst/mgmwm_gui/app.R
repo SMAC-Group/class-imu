@@ -314,6 +314,92 @@ server <- function(input, output, session) {
 
   })
 
+  # BUTTON REDUCE MODEL WHICH WILL USE THE AUTOIMU FUNCTION
+  observeEvent(input$fit2, {
+
+    withProgress(message = 'Reducing model automatically...', value = 0, {
+
+      if (is.null(v$first_gmwm)){
+        v$first_gmwm = TRUE
+      }
+      v$fit = TRUE
+      v$plot = FALSE
+
+
+      my_data = get(input$imu_obj)
+      Xt = my_data[input$sensors][[1]]
+      v$freq = attr(my_data, 'freq')
+      v$custom_data = FALSE
+
+
+      v$n = length(Xt)
+      first = TRUE
+      counter_model_size = 0
+
+      if ("GM" %in% input$model){
+        for (i in 1:input$gm_nb){
+          counter_model_size = counter_model_size + 1
+          if (first == TRUE){
+            model = GM()
+            first = FALSE
+          }else{
+            model = model + AR1()
+          }
+        }
+      }
+
+      if ("WN" %in% input$model){
+        counter_model_size = counter_model_size + 1
+        if (first == TRUE){
+          model = WN()
+          first = FALSE
+        }else{
+          model = model + WN()
+        }
+      }
+
+      if ("QN" %in% input$model){
+        counter_model_size = counter_model_size + 1
+        if (first == TRUE){
+          model = QN()
+          first = FALSE
+        }else{
+          model = model + QN()
+        }
+      }
+
+      if ("RW" %in% input$model){
+        counter_model_size = counter_model_size + 1
+        if (first == TRUE){
+          model = RW()
+          first = FALSE
+        }else{
+          model = model + RW()
+        }
+      }
+
+      if ("DR" %in% input$model){
+        counter_model_size = counter_model_size + 1
+        if (first == TRUE){
+          model = DR()
+          first = FALSE
+        }else{
+          model = model + DR()
+        }
+      }
+
+      if (is.null(model)){
+        model = 3*AR1()
+      }
+
+      a = model_selection(Xt, model,s_test = 2)
+      v$form = a[[1]][[2]]
+
+      updateNavbarPage(session, "tabs", selected = "Selected Sensor")
+    })
+  })
+
+
   output$plot2 <- renderPlot({
     if (class(v$form) == "mgmwm"){
       plot(v$form, process.decomp = input$process_decomp)
