@@ -17,10 +17,10 @@ library(simts)
 
 data(KVH1750imu1kHzAcc)
 data(KVH1750imu1kHzGyro)
-data(MTIG710imu1kHzAcc)
-data(MTIG710imu1kHzGyro)
+data(MTIG710imu1kHz)
 data(KVH1750imuAcc)
 data(KVH1750imuGyro)
+data(MTIG710imu50Hz)
 
 const.RENDER_PLOT_WIDTH = 1000
 const.RENDER_PLOT_HEIGHT = 600
@@ -78,10 +78,10 @@ ui <- shinyUI(fluidPage(
 
 
              selectInput("imu_obj", "Select IMU file:",
-                         c("KVH 1750 imu 1kHz Accelerometers"="KVH1750imu1kHzAcc",
-                           "KVH 1750 imu 1kHz Gyroscopes"="KVH1750imu1kHzGyro",
-                           "MTI-G-710 imu 1kHz Accelerometers"="MTIG710imu1kHzAcc",
-                           "MTI-G-710 imu 1kHz Gyroscopes"="MTIG710imu1kHzGyro",
+                         c("KVH 1750 imu 1k Hz Accelerometers"="KVH1750imu1kHzAcc",
+                           "KVH 1750 imu 1k Hz Gyroscopes"="KVH1750imu1kHzGyro",
+                           "MTI-G-710 imu 1k Hz"="MTIG710imu1kHz",
+                           "MTI-G-710 imu 50 Hz"="MTIG710imu50Hz",
                            "KVH 1750 imu 100 Hz Accelerometers"="KVH1750imuAcc",
                            "KVH 1750 imu 100 Hz Gyroscopes"="KVH1750imuGyro"),
                          selected = 1),
@@ -103,7 +103,7 @@ column(4,
                             "White Noise" = "WN",
                             "Random Walk" = "RW",
                             "Drift" = "DR",
-                            "Gauss-Markov" = "GM"),
+                            "Auto-Regressive" = "GM"),
                           selected = "WN"),
        conditionalPanel(
          condition = "input.model.indexOf('GM')>-1",
@@ -304,7 +304,7 @@ server <- function(input, output, session) {
       if (is.null(input$num)){
         input$num = 10^5
       }
-      v$gmwm = mgmwm(model = model, mimu = Xt, stationarity_test = input$test, B = 30, fast = input$fast)
+      v$gmwm = mgmwm(model = model, mimu = Xt, stationarity_test = input$test, B = 100, fast = input$fast)
       v$form = v$gmwm
       v$first_gmwm = FALSE
 
@@ -324,12 +324,11 @@ server <- function(input, output, session) {
 
   output$plot <- renderPlot({
     N = length(v$all)
-    #if (N > 3){
-    #
-    #}else{
-    #  par(mfrow = c(1,3))
-    #}
-    par(mfrow = c(1,3))
+    if (N > 3){
+      par(mfrow = c(2,3))
+    }else{
+     par(mfrow = c(1,3))
+    }
     for (i in 1:N){
       if (i == 1){
         plot(v$all[[i]])
