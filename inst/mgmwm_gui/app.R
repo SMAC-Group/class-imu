@@ -325,14 +325,9 @@ server <- function(input, output, session) {
       v$fit = TRUE
       v$plot = FALSE
 
-
       my_data = get(input$imu_obj)
       Xt = my_data[input$sensors][[1]]
-      v$freq = attr(my_data, 'freq')
-      v$custom_data = FALSE
 
-
-      v$n = length(Xt)
       first = TRUE
       counter_model_size = 0
 
@@ -340,7 +335,7 @@ server <- function(input, output, session) {
         for (i in 1:input$gm_nb){
           counter_model_size = counter_model_size + 1
           if (first == TRUE){
-            model = GM()
+            model = AR1()
             first = FALSE
           }else{
             model = model + AR1()
@@ -368,6 +363,7 @@ server <- function(input, output, session) {
         }
       }
 
+
       if ("RW" %in% input$model){
         counter_model_size = counter_model_size + 1
         if (first == TRUE){
@@ -392,8 +388,9 @@ server <- function(input, output, session) {
         model = 3*AR1()
       }
 
-      a = model_selection(Xt, model,s_test = 2)
-      v$form = a[[1]][[2]]
+      a = model_selection(mimu = Xt, model = model ,s_test = 2)
+      v$form = a
+
 
       updateNavbarPage(session, "tabs", selected = "Selected Sensor")
     })
