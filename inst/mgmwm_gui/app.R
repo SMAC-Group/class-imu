@@ -103,10 +103,10 @@ column(4,
                             "White Noise" = "WN",
                             "Random Walk" = "RW",
                             "Drift" = "DR",
-                            "Auto-Regressive" = "GM"),
+                            "Auto-Regressive" = "AR"),
                           selected = "WN"),
        conditionalPanel(
-         condition = "input.model.indexOf('GM')>-1",
+         condition = "input.model.indexOf('AR')>-1",
          sliderInput("gm_nb", "Number of Gauss-Markov Processes", 1, 5, 2)
        ),
 
@@ -240,7 +240,7 @@ server <- function(input, output, session) {
       first = TRUE
       counter_model_size = 0
 
-      if ("GM" %in% input$model){
+      if ("AR" %in% input$model){
         for (i in 1:input$gm_nb){
           counter_model_size = counter_model_size + 1
           if (first == TRUE){
@@ -314,7 +314,7 @@ server <- function(input, output, session) {
 
   })
 
-  # BUTTON REDUCE MODEL WHICH WILL USE THE AUTOIMU FUNCTION
+  # BUTTON REDUCE MODEL WHICH WILL USE THE model_selection FUNCTION
   observeEvent(input$fit2, {
 
     withProgress(message = 'Reducing model automatically...', value = 0, {
@@ -331,7 +331,7 @@ server <- function(input, output, session) {
       first = TRUE
       counter_model_size = 0
 
-      if ("GM" %in% input$model){
+      if ("AR" %in% input$model){
         for (i in 1:input$gm_nb){
           counter_model_size = counter_model_size + 1
           if (first == TRUE){
@@ -388,7 +388,7 @@ server <- function(input, output, session) {
         model = 3*AR1()
       }
 
-      a = model_selection(mimu = Xt, model = model ,s_test = 2)
+      a = model_selection( Xt, model ,s_test = 2)
       v$form = a
 
 
