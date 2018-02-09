@@ -79,16 +79,10 @@ ui <- shinyUI(fluidPage(
 
 
              selectInput("imu_obj", "Select IMU file:",
-<<<<<<< Updated upstream
                          c("KVH 1750 imu 1k Hz Accelerometers"="KVH1750imu1kHzAcc",
                            "KVH 1750 imu 1k Hz Gyroscopes"="KVH1750imu1kHzGyro",
                            "MTI-G-710 imu 1k Hz"="MTIG710imu1kHz",
                            "MTI-G-710 imu 50 Hz"="MTIG710imu50Hz",
-=======
-                         c("KVH 1750 imu 1kHz Accelerometers"="KVH1750imu1kHzAcc",
-                           "KVH 1750 imu 1kHz Gyroscopes"="KVH1750imu1kHzGyro",
-                           "MTI-G-710 imu 1kHz"="MTIG710imu1kHz",
->>>>>>> Stashed changes
                            "KVH 1750 imu 100 Hz Accelerometers"="KVH1750imuAcc",
                            "KVH 1750 imu 100 Hz Gyroscopes"="KVH1750imuGyro",
                            "ADIS 16405 imu 100Hz" = "ADIS16405imu100Hz"),
