@@ -21,6 +21,7 @@ data(MTIG710imu1kHz)
 data(KVH1750imuAcc)
 data(KVH1750imuGyro)
 data(MTIG710imu50Hz)
+data(ADIS16405imu100Hz)
 
 const.RENDER_PLOT_WIDTH = 1000
 const.RENDER_PLOT_HEIGHT = 600
@@ -83,7 +84,8 @@ ui <- shinyUI(fluidPage(
                            "MTI-G-710 imu 1k Hz"="MTIG710imu1kHz",
                            "MTI-G-710 imu 50 Hz"="MTIG710imu50Hz",
                            "KVH 1750 imu 100 Hz Accelerometers"="KVH1750imuAcc",
-                           "KVH 1750 imu 100 Hz Gyroscopes"="KVH1750imuGyro"),
+                           "KVH 1750 imu 100 Hz Gyroscopes"="KVH1750imuGyro",
+                           "ADIS 16405 imu 100Hz" = "ADIS16405imu100Hz"),
                          selected = 1),
 
             selectInput("sensors", "Select sensor", c("1"="1","2"="2", selected = 1)),
