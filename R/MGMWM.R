@@ -121,6 +121,8 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
 
   theta = model$theta
 
+  set.seed(2710)
+
   N = rep(NA,nr)
   for (i in 1:nr){
     N[i] = length(mimu[[i]]$data)

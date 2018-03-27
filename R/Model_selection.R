@@ -4,6 +4,101 @@ comb.mat = function(n){
   expand.grid(c)
 }
 
+#' @export
+param_transform = function(model){
+
+  np = model$plength
+
+  # Initialise counter
+  counter = 1
+
+  for (j in 1:np){
+    # is random walk?
+    if (model$process.desc[j] == "RW"){
+      model$theta[counter] = exp(model$theta[counter])
+      counter = counter + 1
+    }
+
+    # is white noise?
+    if (model$process.desc[j] == "WN"){
+      model$theta[counter] = exp(model$theta[counter])
+      counter = counter + 1
+    }
+
+    # is drift?
+    if (model$process.desc[j] == "DR"){
+      model$theta[counter] = exp(model$theta[counter])
+      counter = counter + 1
+    }
+
+    # is quantization noise?
+    if (model$process.desc[j] == "QN"){
+      model$theta[counter] = exp(model$theta[counter])
+      counter = counter + 1
+    }
+
+    # is AR1?
+    if (model$process.desc[j] == "AR1"){
+      model$theta[counter] = transform_phi(model$theta[counter])
+      counter = counter + 1
+    }
+
+    # is SIGMA2?
+    if (model$process.desc[j] == "SIGMA2"){
+      model$theta[counter] = exp(model$theta[counter])
+      counter = counter + 1
+    }
+  }
+  model$theta
+}
+
+#' @export
+inv_param_transform = function(model,starting_value){
+
+  np = model$plength
+
+  # Initialise counter
+  counter = 1
+
+  for (j in 1:np){
+    # is random walk?
+    if (model$process.desc[j] == "RW"){
+      starting_value[counter] = log(starting_value[counter])
+      counter = counter + 1
+    }
+
+    # is white noise?
+    if (model$process.desc[j] == "WN"){
+      starting_value[counter] = log(starting_value[counter])
+      counter = counter + 1
+    }
+
+    # is drift?
+    if (model$process.desc[j] == "DR"){
+      model$theta[counter] = log(starting_value[counter])
+      counter = counter + 1
+    }
+
+    # is quantization noise?
+    if (model$process.desc[j] == "QN"){
+      starting_value[counter] = log(starting_value[counter])
+      counter = counter + 1
+    }
+
+    # is AR1?
+    if (model$process.desc[j] == "AR1"){
+      starting_value[counter] = inv_transform_phi(starting_value[counter])
+      counter = counter + 1
+    }
+
+    # is SIGMA2?
+    if (model$process.desc[j] == "SIGMA2"){
+      starting_value[counter] = log(starting_value[counter])
+      counter = counter + 1
+    }
+  }
+  starting_value
+}
 
 #' @export
 model_combination = function(model_max){
@@ -101,10 +196,8 @@ model_combination = function(model_max){
   all_model
 }
 
-
-
 #' @export
-model_selection = function(mimu, model, s_test = s_test){
+model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
 
   # model_max must be an object of type model
 
@@ -113,17 +206,15 @@ model_selection = function(mimu, model, s_test = s_test){
   # Number of replicates
   n_replicates = length(mimu)
 
-  n_process_max = length(model$desc)
-
   # Number of replicates fot compute the CV_WVIC
 
-  s_valid = length(mimu) - s_test
+  s_valid = n_replicates - s_test
 
   # Matrix of possible combination of Time series to estimate
   pair = t(combn(n_replicates,s_test))
 
   # Number of possible combination
-  D = (dim(pair)[1])
+  n_replicates_permutation = (dim(pair)[1])
 
   # Create model object with all possible nested model in model_max
   model_est = model_combination(model_max = model)
@@ -134,8 +225,9 @@ model_selection = function(mimu, model, s_test = s_test){
 
   cv_wvic = rep(NA,n_models)
 
-  for (i in 1:n_models){
+  obj_out_sample = matrix(NA,n_replicates_permutation, n_models)
 
+  for (i in 1:n_models){
     desc = model_est[[i]]$desc
 
     np = model_est[[i]]$plength
@@ -146,11 +238,12 @@ model_selection = function(mimu, model, s_test = s_test){
 
     starting = model_est[[i]]$starting
 
-    obj_out_sample = rep(NA,D)
+    set.seed(2710)
 
-    for (d in 1:D){
+    for (d in 1:n_replicates_permutation){
 
       mimu_est = list()
+      class(mimu_est) = "mimu"
       mimu_test = mimu[-pair[d,sequence(s_test)]]
 
       for (s in 1:s_test){
@@ -180,52 +273,12 @@ model_selection = function(mimu, model, s_test = s_test){
         }
         starting_value = apply(para_gmwm, 1, mean)
 
-        # Initialise counter
-        counter = 1
-
-        for (j in 1:np){
-          # is random walk?
-          if (model_est[[i]]$process.desc[j] == "RW"){
-            starting_value[counter] = log(starting_value[counter])
-            counter = counter + 1
-          }
-
-          # is white noise?
-          if (model_est[[i]]$process.desc[j] == "WN"){
-            starting_value[counter] = log(starting_value[counter])
-            counter = counter + 1
-          }
-
-          # is drift?
-          if (model_est[[i]]$process.desc[j] == "DR"){
-            starting_value[counter] = log(starting_value[counter])
-            counter = counter + 1
-          }
-
-          # is quantization noise?
-          if (model_est[[i]]$process.desc[j] == "QN"){
-            starting_value[counter] = log(starting_value[counter])
-            counter = counter + 1
-          }
-
-          # is AR1?
-          if (model_est[[i]]$process.desc[j] == "AR1"){
-            starting_value[counter] = inv_transform_phi(starting_value[counter])
-            counter = counter + 1
-          }
-
-          # is SIGMA2?
-          if (model_est[[i]]$process.desc[j] == "SIGMA2"){
-            starting_value[counter] = log(starting_value[counter])
-            counter = counter + 1
-          }
-        }
+        starting_value = inv_param_transform(model_est[[i]],starting_value)
       }
 
-      out = optim(starting_value, mgmwm_obj_function, model = model_est[[i]], mimu = mimu)
+      out = optim(starting_value, mgmwm_obj_function, model = model_est[[i]], mimu = mimu_est)
 
       # transform e.g. variance = exp(out$par[1])
-
 
       model_test[[i]] = model_est[[i]]
 
@@ -233,134 +286,207 @@ model_selection = function(mimu, model, s_test = s_test){
       model_test[[i]]$starting = FALSE
       model_test[[i]]$theta = out$par
 
-      obj_out_sample[d] = mgmwm_obj_function(model_test[[i]]$theta, model_test[[i]], mimu_test)/s_test
+      obj_out_sample[d,i] = mgmwm_obj_function(model_test[[i]]$theta, model_test[[i]], mimu_test)/s_valid
 
+      model_test[[i]]$theta = param_transform(model_test[[i]])
+    }
+    cv_wvic[i] = mean(obj_out_sample[,i])
+  }
 
-      # Initialise counter
-      counter = 1
+  # Compute the average on all permutation of the out of sample WVIC
+  mod_selected_cv = which.min(cv_wvic)
 
-      for (j in 1:np){
-        # is random walk?
-        if (model_test[[i]]$process.desc[j] == "RW"){
-          model_test[[i]]$theta[counter] = exp(model_test[[i]]$theta[counter])
-          counter = counter + 1
-        }
+  ############ Just add if statement for test_pval
 
-        # is white noise?
-        if (model_test[[i]]$process.desc[j] == "WN"){
-          model_test[[i]]$theta[counter] = exp(model_test[[i]]$theta[counter])
-          counter = counter + 1
-        }
+  if(test_pval == TRUE){
+    wilcox_test_cv_wvic = rep(FALSE,n_models)
 
-        # is drift?
-        if (model_test[[i]]$process.desc[j] == "DR"){
-          model_test[[i]]$theta[counter] = exp(model_test[[i]]$theta[counter])
-          counter = counter + 1
-        }
+    model_selected_cv_size = model_test[[mod_selected_cv]]$plength
 
-        # is quantization noise?
-        if (model_test[[i]]$process.desc[j] == "QN"){
-          model_test[[i]]$theta[counter] = exp(model_test[[i]]$theta[counter])
-          counter = counter + 1
-        }
-
-        # is AR1?
-        if (model_test[[i]]$process.desc[j] == "AR1"){
-          model_test[[i]]$theta[counter] = transform_phi(model_test[[i]]$theta[counter])
-          counter = counter + 1
-        }
-
-        # is SIGMA2?
-        if (model_test[[i]]$process.desc[j] == "SIGMA2"){
-          model_test[[i]]$theta[counter] = exp(model_test[[i]]$theta[counter])
-          counter = counter + 1
-        }
-      }
-      if(d == 1){
-        starting_values = model_test[[1]]$theta
+    for (i in 1:n_models){
+      if(model_selected_cv_size > model_test[[i]]$plength){
+        wilcox_test_cv_wvic[i] = wilcox.test(obj_out_sample[,i],obj_out_sample[,mod_selected_cv],paired = T,alternative = "greater")$p.val
       }
     }
-    cv_wvic[i] = mean(obj_out_sample)
+    test_wilcox_result = wilcox_test_cv_wvic > .05
 
-  }
-  mod_selected = which.min(cv_wvic)
+    if(sum(test_wilcox_result) > 0){
+      index_select_wilcox = which(test_wilcox_result[1:n_models] == TRUE)
 
-  estimate = as.matrix(model_test[[mod_selected]]$theta)
-  rownames(estimate) = model_test[[mod_selected]]$process.desc
-  colnames(estimate) = "Estimates"
+      if(length(index_select_wilcox) != 1){
+        model_complexity = rep(NA,n_models)
+        for(k in 1:n_models){
+          model_complexity[k] = test_wilcox_result[k]*model_test[[k]]$plength
+        }
+        model_complexity[model_complexity == 0] = NA
+        index_select_wilcox = which.min(model_complexity)
+      }
 
-  obj.value = out$value
-  names(obj.value) = "Value Objective Function"
-
-  scales.num = rep(NA,length(mimu))
-
-  for (i in 1:n_replicates){
-    scales.num[i] = length(mimu[[i]]$scales)
-  }
-
-  max.scales.index = which.max(scales.num)
-  max.scales = max(scales.num)
-  scales.max = mimu[[max.scales.index]]$scales
-
-  tau.max = 2^(1:max.scales)
-
-  # WV implied by the parameter
-
-  wv.implied = wv_theo(model_test[[mod_selected]], tau.max)
-
-  n_process = length(model_test[[mod_selected]]$desc)
-
-  #### Extact individual model for Theoretical decomposition
-
-  model.desc.decomp.theo = list()
-
-  # Initialise counter
-  counter = 1
-
-  for (i in 1:n_process){
-
-    if (model_test[[mod_selected]]$desc[i] == "RW"){
-      model.desc.decomp.theo[[i]] = RW(gamma2 = model_test[[mod_selected]]$theta[counter])
-      counter = counter + 1
-    }
-
-    # is white noise?
-    if (model_test[[mod_selected]]$desc[i] == "WN"){
-      model.desc.decomp.theo[[i]] =WN(sigma2 = model_test[[mod_selected]]$theta[counter])
-      counter = counter + 1
-    }
-
-    # is drift?
-    if (model_test[[mod_selected]]$desc[i] == "DR"){
-      model.desc.decomp.theo[[i]] = DR(omega = model_test[[mod_selected]]$theta[counter])
-      counter = counter + 1
-    }
-
-    # is quantization noise?
-    if (model_test[[mod_selected]]$desc[i] == "QN"){
-      model.desc.decomp.theo[[i]] = QN(q2 = model_test[[mod_selected]]$theta[counter])
-      counter = counter + 1
-    }
-
-    # is AR1?
-    if (model_test[[mod_selected]]$desc[i] == "AR1"){
-      model.desc.decomp.theo[[i]] = AR1(phi = model_test[[mod_selected]]$theta[counter], sigma2 = model_test[[mod_selected]]$theta[counter + 1])
-      counter = counter + 2
+    }else{
+      index_select_wilcox = mod_selected_cv
     }
   }
 
-  # Compute individual theoretical wv
-  decomp.theo = list()
-  for (i in 1:n_process){
-    model.decomp.theo = model.desc.decomp.theo[[i]]
-    decomp.theo[[i]] =  wv_theo(model.decomp.theo, tau.max)
+  if(test_pval == FALSE){
+    estimate = as.matrix(model_test[[mod_selected_cv]]$theta)
+    rownames(estimate) = model_test[[mod_selected_cv]]$process.desc
+    colnames(estimate) = "Estimates"
+
+    #obj.value = model_test[[mod_selected_cv]]$value
+    #names(obj.value) = "Value Objective Function"
+
+    scales.num = rep(NA,length(mimu))
+
+    for (i in 1:n_replicates){
+      scales.num[i] = length(mimu[[i]]$scales)
+    }
+
+    max.scales.index = which.max(scales.num)
+    max.scales = max(scales.num)
+    scales.max = mimu[[max.scales.index]]$scales
+
+    tau.max = 2^(1:max.scales)
+
+    # WV implied by the parameter
+
+    wv.implied = wv_theo(model_test[[mod_selected_cv]], tau.max)
+
+    n_process = length(model_test[[mod_selected_cv]]$desc)
+
+    #### Extact individual model for Theoretical decomposition
+
+    model.desc.decomp.theo = list()
+
+    # Initialise counter
+    counter = 1
+
+    for (i in 1:n_process){
+
+      if (model_test[[mod_selected_cv]]$desc[i] == "RW"){
+        model.desc.decomp.theo[[i]] = RW(gamma2 = model_test[[mod_selected_cv]]$theta[counter])
+        counter = counter + 1
+      }
+
+      # is white noise?
+      if (model_test[[mod_selected_cv]]$desc[i] == "WN"){
+        model.desc.decomp.theo[[i]] =WN(sigma2 = model_test[[mod_selected_cv]]$theta[counter])
+        counter = counter + 1
+      }
+
+      # is drift?
+      if (model_test[[mod_selected_cv]]$desc[i] == "DR"){
+        model.desc.decomp.theo[[i]] = DR(omega = model_test[[mod_selected_cv]]$theta[counter])
+        counter = counter + 1
+      }
+
+      # is quantization noise?
+      if (model_test[[mod_selected_cv]]$desc[i] == "QN"){
+        model.desc.decomp.theo[[i]] = QN(q2 = model_test[[mod_selected_cv]]$theta[counter])
+        counter = counter + 1
+      }
+
+      # is AR1?
+      if (model_test[[mod_selected_cv]]$desc[i] == "AR1"){
+        model.desc.decomp.theo[[i]] = AR1(phi = model_test[[mod_selected_cv]]$theta[counter], sigma2 = model_test[[mod_selected_cv]]$theta[counter + 1])
+        counter = counter + 2
+      }
+    }
+
+    # Compute individual theoretical wv
+    decomp.theo = list()
+    for (i in 1:n_process){
+      model.decomp.theo = model.desc.decomp.theo[[i]]
+      decomp.theo[[i]] =  wv_theo(model.decomp.theo, tau.max)
+    }
+
+    model.hat = model_test[[mod_selected_cv]]
+
+  }else{
+
+    estimate = as.matrix(model_test[[index_select_wilcox]]$theta)
+    rownames(estimate) = model_test[[index_select_wilcox]]$process.desc
+    colnames(estimate) = "Estimates"
+
+    #obj.value = model_test[[mod_selected_cv]]$value
+    #names(obj.value) = "Value Objective Function"
+
+    scales.num = rep(NA,length(mimu))
+
+    for (i in 1:n_replicates){
+      scales.num[i] = length(mimu[[i]]$scales)
+    }
+
+    max.scales.index = which.max(scales.num)
+    max.scales = max(scales.num)
+    scales.max = mimu[[max.scales.index]]$scales
+
+    tau.max = 2^(1:max.scales)
+
+    # WV implied by the parameter
+
+    wv.implied = wv_theo(model_test[[index_select_wilcox]], tau.max)
+
+    n_process = length(model_test[[index_select_wilcox]]$desc)
+
+    #### Extact individual model for Theoretical decomposition
+
+    model.desc.decomp.theo = list()
+
+    # Initialise counter
+    counter = 1
+
+    for (i in 1:n_process){
+
+      if (model_test[[index_select_wilcox]]$desc[i] == "RW"){
+        model.desc.decomp.theo[[i]] = RW(gamma2 = model_test[[index_select_wilcox]]$theta[counter])
+        counter = counter + 1
+      }
+
+      # is white noise?
+      if (model_test[[index_select_wilcox]]$desc[i] == "WN"){
+        model.desc.decomp.theo[[i]] =WN(sigma2 = model_test[[index_select_wilcox]]$theta[counter])
+        counter = counter + 1
+      }
+
+      # is drift?
+      if (model_test[[index_select_wilcox]]$desc[i] == "DR"){
+        model.desc.decomp.theo[[i]] = DR(omega = model_test[[index_select_wilcox]]$theta[counter])
+        counter = counter + 1
+      }
+
+      # is quantization noise?
+      if (model_test[[index_select_wilcox]]$desc[i] == "QN"){
+        model.desc.decomp.theo[[i]] = QN(q2 = model_test[[index_select_wilcox]]$theta[counter])
+        counter = counter + 1
+      }
+
+      # is AR1?
+      if (model_test[[index_select_wilcox]]$desc[i] == "AR1"){
+        model.desc.decomp.theo[[i]] = AR1(phi = model_test[[index_select_wilcox]]$theta[counter], sigma2 = model_test[[index_select_wilcox]]$theta[counter + 1])
+        counter = counter + 2
+      }
+    }
+
+    # Compute individual theoretical wv
+    decomp.theo = list()
+    for (i in 1:n_process){
+      model.decomp.theo = model.desc.decomp.theo[[i]]
+      decomp.theo[[i]] =  wv_theo(model.decomp.theo, tau.max)
+    }
+
+    model.hat = model_test[[index_select_wilcox]]
+
   }
 
 
   model_selected = structure(list(estimate = estimate,
                        decomp.theo = decomp.theo,
                        model = model,
-                       model.hat = model_test[[mod_selected]],
+                       cv_wvic = cv_wvic,
+                       obj_out_sample = obj_out_sample,
+                       mod_selected_cv = mod_selected_cv,
+                       model_test = model_test,
+                       model.hat = model.hat,
                        scales.max = scales.max,
                        wv.implied = wv.implied,
                        mimu = mimu), class = "mgmwm")
