@@ -212,11 +212,11 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
   out = optim(starting_value, mgmwm_obj_function, model = model, mimu = mimu)
 
   # Create estimated model object
-  model.hat = model
+  model_hat = model
 
   # Pass on the estimated paramters onto the model.
-  model.hat$starting = FALSE
-  model.hat$theta = out$par
+  model_hat$starting = FALSE
+  model_hat$theta = out$par
 
 
 
@@ -226,37 +226,37 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
   for (j in 1:np){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      model.hat$theta[counter] = exp(model.hat$theta[counter])
+      model_hat$theta[counter] = exp(model_hat$theta[counter])
       counter = counter + 1
     }
 
     # is white noise?
     if (model$process.desc[j] == "WN"){
-      model.hat$theta[counter] = exp(model.hat$theta[counter])
+      model_hat$theta[counter] = exp(model_hat$theta[counter])
       counter = counter + 1
     }
 
     # is drift?
     if (model$process.desc[j] == "DR"){
-      model.hat$theta[counter] = exp(model.hat$theta[counter])
+      model_hat$theta[counter] = exp(model_hat$theta[counter])
       counter = counter + 1
     }
 
     # is quantization noise?
     if (model$process.desc[j] == "QN"){
-      model.hat$theta[counter] = exp(model.hat$theta[counter])
+      model_hat$theta[counter] = exp(model_hat$theta[counter])
       counter = counter + 1
     }
 
     # is AR1?
     if (model$process.desc[j] == "AR1"){
-      model.hat$theta[counter] = transform_phi(model.hat$theta[counter])
+      model_hat$theta[counter] = transform_phi(model_hat$theta[counter])
       counter = counter + 1
     }
 
     # is SIGMA2?
     if (model$process.desc[j] == "SIGMA2"){
-      model.hat$theta[counter] = exp(model.hat$theta[counter])
+      model_hat$theta[counter] = exp(model_hat$theta[counter])
       counter = counter + 1
     }
   }
@@ -276,11 +276,11 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
     for (i in 1:B){
       sim.H0 = list()
       for (j in 1:nr){
-        sim.H0[[j]] = simts::gen_gts(N[j],model.hat)
+        sim.H0[[j]] = simts::gen_gts(N[j],model_hat)
       }
       simu.obj = make_wvar_mimu_obj(for_test = sim.H0, freq = 100, unit = "s", sensor.name = "MTiG - Gyro. X",
                                     exp.name = c("today", "yesterday", "a few days ago"))
-      distrib.H0[i] = optim(out$par, mgmwm_obj_function, model = model.hat, mimu = simu.obj)$value
+      distrib.H0[i] = optim(out$par, mgmwm_obj_function, model = model_hat, mimu = simu.obj)$value
     }
 
     # extract p_value from the test
@@ -313,7 +313,7 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
 
   # WV implied by the parameter
 
-  wv.implied = wv_theo(model.hat, tau.max)
+  wv_implied = wv_theo(model_hat, tau.max)
 
 
   #### Extact individual model for Theoretical decomposition
@@ -326,31 +326,31 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
   for (i in 1:n_process){
 
     if (desc[i] == "RW"){
-      model.desc.decomp.theo[[i]] = RW(gamma2 = model.hat$theta[counter])
+      model.desc.decomp.theo[[i]] = RW(gamma2 = model_hat$theta[counter])
       counter = counter + 1
     }
 
     # is white noise?
     if (desc[i] == "WN"){
-      model.desc.decomp.theo[[i]] =WN(sigma2 = model.hat$theta[counter])
+      model.desc.decomp.theo[[i]] =WN(sigma2 = model_hat$theta[counter])
       counter = counter + 1
     }
 
     # is drift?
     if (desc[i] == "DR"){
-      model.desc.decomp.theo[[i]] = DR(omega = model.hat$theta[counter])
+      model.desc.decomp.theo[[i]] = DR(omega = model_hat$theta[counter])
       counter = counter + 1
     }
 
     # is quantization noise?
     if (desc[i] == "QN"){
-      model.desc.decomp.theo[[i]] = QN(q2 = model.hat$theta[counter])
+      model.desc.decomp.theo[[i]] = QN(q2 = model_hat$theta[counter])
       counter = counter + 1
     }
 
     # is AR1?
     if (desc[i] == "AR1"){
-      model.desc.decomp.theo[[i]] = AR1(phi = model.hat$theta[counter], sigma2 = model.hat$theta[counter + 1])
+      model.desc.decomp.theo[[i]] = AR1(phi = model_hat$theta[counter], sigma2 = model_hat$theta[counter + 1])
       counter = counter + 2
     }
   }
@@ -362,8 +362,8 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
     decomp.theo[[i]] =  wv_theo(model.decomp.theo, tau.max)
   }
 
-  estimate = as.matrix(model.hat$theta)
-  rownames(estimate) = model.hat$process.desc
+  estimate = as.matrix(model_hat$theta)
+  rownames(estimate) = model_hat$process.desc
   colnames(estimate) = "Estimates"
 
   obj.value = out$value
@@ -374,10 +374,10 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
                        obj.value = obj.value,
                        decomp.theo = decomp.theo,
                        model = model,
-                       model.hat = model.hat,
+                       model_hat = model_hat,
                        scales.max = scales.max,
                        p_value = p_value,
-                       wv.implied = wv.implied,
+                       wv_implied = wv_implied,
                        test.result = test_res,
                        mimu = mimu), class = "mgmwm")
   invisible(out)
@@ -413,11 +413,11 @@ plot.mgmwm = function(obj_list, process.decomp = FALSE, add_legend_mgwmw = TRUE,
     }
   }
   # Plot implied WV
-  lines(t(obj_list$scales.max),obj_list$wv.implied, type = "l", lwd = 3, col = "#F47F24", pch = 1, cex = 1.5)
-  lines(t(obj_list$scales.max),obj_list$wv.implied, type = "p", lwd = 2, col = "#F47F24", pch = 1, cex = 1.5)
+  lines(t(obj_list$scales.max),obj_list$wv_implied, type = "l", lwd = 3, col = "#F47F24", pch = 1, cex = 1.5)
+  lines(t(obj_list$scales.max),obj_list$wv_implied, type = "p", lwd = 2, col = "#F47F24", pch = 1, cex = 1.5)
 
   if(process.decomp == TRUE){
-    legend_names = c("Implied WV", obj_list$model.hat$desc)
+    legend_names = c("Implied WV", obj_list$model_hat$desc)
     col_legend = c("#F47F24",col_wv)
     p_cex_legend = c(1.5,rep(NA,U))
   }else{

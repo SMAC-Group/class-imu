@@ -128,6 +128,7 @@ column(4,
        checkboxInput("process_decomp", "Show latent processes", TRUE),
        checkboxInput("fast", "Fast computation", FALSE),
        checkboxInput("test", "Near-stationarity test", FALSE),
+       checkboxInput("test_pval", "Paired test Selection", FALSE),
 
        br(),
 
@@ -390,7 +391,7 @@ server <- function(input, output, session) {
         model = 3*AR1()
       }
 
-      a = model_selection( Xt, model ,s_test = 2)
+      a = model_selection( Xt, model ,s_test = 2, test_pval = input$test_pval)
       v$form = a
 
 

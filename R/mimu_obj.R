@@ -69,7 +69,7 @@ is.mimu = function(obj){class(obj) == "mimu"}
 plot.mimu = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
                         ylab = NULL, col_wv = NULL, col_ci = NULL, nb_ticks_x = NULL,
                         nb_ticks_y = NULL, legend_position = "bottomleft", ci_wv = NULL, point_cex = NULL,
-                        point_pch = NULL, names = NULL, transparency = NULL){
+                        point_pch = NULL, names = NULL, transparency_wv = NULL, transparency_ci = NULL){
 
   obj_name = attr(obj_list, "exp.name")
   obj_len  = length(obj_list)
@@ -112,32 +112,42 @@ plot.mimu = function(obj_list, split = FALSE, add_legend = TRUE, xlab = NULL,
       ci_wv = rep(ci_wv, obj_len)
     }
 
-    if (is.null(transparency)){
+    if (is.null(transparency_ci)){
       if(obj_len < 3){
-        transparency = 0.2
+        transparency_ci = 0.2
       }else{
-        transparency = 0.1
+        transparency_ci = 0.1
       }
     }else{
-      transparency = transparency
+      transparency_ci = transparency_ci
+    }
+
+    if (is.null(transparency_wv)){
+      if(obj_len < 3){
+        transparency_wv = 1
+      }else{
+        transparency_wv = 0.8
+      }
+    }else{
+      transparency_wv = transparency_wv
     }
 
 
     hues = seq(15, 375, length = obj_len + 1)
     # Line and CI colors
     if (is.null(col_wv)){
-      col_wv = hcl(h = hues, l = 65, c = 200, alpha = 1)[seq_len(obj_len)]
+      col_wv = hcl(h = hues, l = 65, c = 200, alpha = transparency_wv)[seq_len(obj_len)]
     }else{
       if (length(col_wv) != obj_len){
-        col_wv = hcl(h = hues, l = 65, c = 200, alpha = 1)[seq_len(obj_len)]
+        col_wv = hcl(h = hues, l = 65, c = 200, alpha = transparency_wv)[seq_len(obj_len)]
       }
     }
 
     if (is.null(col_ci)){
-      col_ci = hcl(h = hues, l = 80, c = 100, alpha = transparency)[seq_len(obj_len)]
+      col_ci = hcl(h = hues, l = 80, c = 100, alpha = transparency_ci)[seq_len(obj_len)]
     }else{
       if (length(col_ci) != obj_len){
-        col_ci = hcl(h = hues, l = 80, c = 100, alpha = transparency)[seq_len(obj_len)]
+        col_ci = hcl(h = hues, l = 80, c = 100, alpha = transparency_ci)[seq_len(obj_len)]
       }
     }
 

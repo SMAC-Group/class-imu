@@ -2,14 +2,15 @@ library(simts)
 library(gmwm)
 library(wv)
 library(classimu)
+library(progress)
 
 
 
-n1 = 10000
+n1 = 100000
 n2 = 10000
-n3 = 1000000
+n3 = 10000
 
-model1 =  AR1(.85,sigma2 = 1 ) + WN(.5) + RW (1e-4)
+model1 =  AR1(.85,sigma2 = 1e-4 ) + WN(.005) + RW (1e-7)
 model = 3*AR1() + WN() + RW ()
 
 
@@ -26,14 +27,7 @@ test.optim = mgmwm(model, mimu, stationarity_test = FALSE, B = 30, fast = F, alp
 
 # Resutlat du test
 
-test.optim$test_res
-
-
-plot(test.optim, process.decomp = TRUE)
-
-
-
-test_model_selection = model_selection(mimu,model,s_test = 2)
+test_model_selection = model_selection(mimu,model,s_test = 2, test_pval = TRUE)
 
 class(test_model_selection)
 
