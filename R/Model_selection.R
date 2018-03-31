@@ -314,7 +314,7 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
         wilcox_test_cv_wvic[i] = wilcox.test(obj_out_sample[,i],obj_out_sample[,mod_selected_cv],paired = T,alternative = "greater")$p.val
       }
     }
-    test_wilcox_result = (wilcox_test_cv_wvic != 1) & (wilcox_test_cv_wvic > .05)
+    test_wilcox_result = (wilcox_test_cv_wvic > .05)
 
     if(sum(test_wilcox_result) > 0){
       index_select_wilcox_list = which(test_wilcox_result[1:n_models] == TRUE)
@@ -326,11 +326,11 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
         }
         model_complexity[model_complexity == 0] = NA
         index_select_wilcox = which.min(model_complexity)
-        mod_selected_cv = index_select_wilcox
+      }else{
+        test_pval = FALSE
       }
-
     }else{
-      index_select_wilcox = mod_selected_cv
+      test_pval = FALSE
     }
   }
 
@@ -347,16 +347,12 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
 
   tau.max = 2^(1:max.scales)
 
-  # Extract model selected through the cv-wvic
-  model_hat = model_test[[mod_selected_cv]]
-
-  if(sum(test_wilcox_result) == 0){
-    test_pval = FALSE
-  }
-
   # Output if no Wilcoxon test
   if(test_pval == TRUE){
     # Output if Wilcoxon test
+
+    # Extract model selected through the cv-wvic
+    model_hat = model_test[[index_select_wilcox]]
 
     ## Create the ouput for the selected model
     estimate = as.matrix(model_hat$theta)
@@ -368,7 +364,7 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
 
     # List of models not rejected by the Wilcoxon test
     model_list_wilcox_test = list()
-    if(index_select_wilcox_list == 1){
+    if(length(index_select_wilcox_list) == 1){
       model_list_wilcox_test = model_hat
     }else{
       model_list_wilcox_test[[1]] = model_hat
@@ -449,9 +445,11 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
                                     model_list_wilcox_test = model_list_wilcox_test,
                                     scales.max = scales.max,
                                     wv_implied = wv_implied,
-                                    test_wilcox_result = test_wilcox_result,
                                     mimu = mimu), class = "cvwvic")
   }else{
+    # Extract model selected through the cv-wvic
+    model_hat = model_test[[mod_selected_cv]]
+
     ## Create the ouput for the selected model
     estimate = as.matrix(model_hat$theta)
     rownames(estimate) = model_hat$process.desc
@@ -531,7 +529,7 @@ plot.cvwvic = function(obj_list, process.decomp = FALSE,
                        plot_type = "one"){
 
   if(plot_type == "one"){
-    plot(obj_list$mimu, add_legend = FALSE)
+    plot(obj_list$mimu, add_legend = FALSE, ylab = NULL)
     U = length(obj_list$wv_theo_latent_process[[1]])
     col_wv = hcl(h = seq(100, 375, length = U + 1), l = 65, c = 200, alpha = 1)[1:U]
 
