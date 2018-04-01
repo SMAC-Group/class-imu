@@ -1,28 +1,6 @@
 
 
 #' @export
-# ----- phi
-transform_phi = function(phi_R){
-  phi = 2*(inv_logit(phi_R)-1/2)
-  phi
-}
-
-#' @export
-# ----- phi
-inv_transform_phi = function(phi){
-  phi_R = log(2/(1-phi)-1)
-  phi_R
-}
-
-#' @export
-# ----- weights
-# use inv_logit function to transform weights (to map R -> [0,1])
-inv_logit = function(x){
-  exp(x)/(1 + exp(x))
-}
-
-
-#' @export
 mgmwm_obj_function = function(theta, model, mimu){
 
   M = length(model$process.desc)
@@ -98,7 +76,8 @@ mgmwm_obj_function = function(theta, model, mimu){
 }
 
 #' @export
-mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, alpha_near_test = 0.05){
+mgmwm = function(model, mimu,CI = FALSE, stationarity_test = FALSE, B = 500,
+                 fast = TRUE, alpha_ci = 0.05, alpha_near_test = 0.05){
   # Check if model is a ts object
   if(!is.mimu(mimu)){
     stop("`mimu` must be created from a `mimu` object. ")
@@ -167,7 +146,6 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
     starting_value = apply(para_gmwm, 1, mean)
   }
 
-
   # Initialise counter
   counter = 1
 
@@ -210,6 +188,76 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
   }
 
   out = optim(starting_value, mgmwm_obj_function, model = model, mimu = mimu)
+
+
+  # Compute the Confidence Intervals
+
+  I = iterpc(nr, nr, replace = TRUE)
+  perm = getall(I)
+  n_permutation = dim(perm)[1]
+
+  distrib_param = matrix(NA,n_permutation,length(out$par))
+
+  if(CI == TRUE){
+    if(n_permutation > 300){
+      n_permutation = 300
+    }else{
+      n_permutation = n_permutation
+    }
+
+    for (i in 1:n_permutation){
+      sampled_imu_obj = list()
+      for (j in 1:nr){
+        sampled_imu_obj[[j]] = mimu[[perm[i,j]]]
+        class(sampled_imu_obj) = "mimu"
+      }
+      distrib_param[i,] = optim(out$par, mgmwm_obj_function, model = model, mimu = sampled_imu_obj)$par
+
+      counter = 1
+      for (j in 1:np){
+        # is random walk?
+        if (model$process.desc[j] == "RW"){
+          distrib_param[,counter] = exp(distrib_param[,counter])
+          counter = counter + 1
+        }
+
+        # is white noise?
+        if (model$process.desc[j] == "WN"){
+          distrib_param[,counter] = exp(distrib_param[,counter])
+          counter = counter + 1
+        }
+
+        # is drift?
+        if (model$process.desc[j] == "DR"){
+          distrib_param[,counter] = exp(distrib_param[,counter])
+          counter = counter + 1
+        }
+
+        # is quantization noise?
+        if (model$process.desc[j] == "QN"){
+          distrib_param[counter] = exp(distrib_param[,counter])
+          counter = counter + 1
+        }
+
+        # is AR1?
+        if (model$process.desc[j] == "AR1"){
+          distrib_param[,counter] = transform_phi(distrib_param[,counter])
+          counter = counter + 1
+        }
+
+        # is SIGMA2?
+        if (model$process.desc[j] == "SIGMA2"){
+          distrib_param[,counter] = exp(distrib_param[,counter])
+          counter = counter + 1
+        }
+      }
+    }
+
+  }else{
+    test_res = NA
+    p_value = NA
+  }
+
 
   # Create estimated model object
   model_hat = model
@@ -264,7 +312,7 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
 
   # Create the near-stationnary test
 
-  distrib.H0 = rep(NA,B)
+  distrib_H0 = rep(NA,B)
 
   if(stationarity_test == TRUE){
     if(is.null(B)){
@@ -280,11 +328,11 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
       }
       simu.obj = make_wvar_mimu_obj(for_test = sim.H0, freq = 100, unit = "s", sensor.name = "MTiG - Gyro. X",
                                     exp.name = c("today", "yesterday", "a few days ago"))
-      distrib.H0[i] = optim(out$par, mgmwm_obj_function, model = model_hat, mimu = simu.obj)$value
+      distrib_H0[i] = optim(out$par, mgmwm_obj_function, model = model, mimu = simu.obj)$value
     }
 
     # extract p_value from the test
-    p_value = sum(distrib.H0 >= out$value)/B
+    p_value = sum(distrib_H0 >= out$value)/B
 
     # decision rules from the test
     if(p_value >= alpha_near_test){
@@ -394,13 +442,20 @@ mgmwm = function(model, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, al
 
 
 #' @export
-plot.mgmwm = function(obj_list, process.decomp = FALSE, add_legend_mgwmw = TRUE, legend_pos = NULL){
+plot.mgmwm = function(obj_list, process.decomp = FALSE,
+                      add_legend_mgwmw = TRUE, legend_pos = NULL, ylab_mgmwm = NULL){
 
   mimu_obj_name = attr(obj_list[[7]], "exp.name")
   mimu_obj_name = paste("Empirical WV", mimu_obj_name)
 
+  if (is.null(ylab_mgmwm)){
+    ylab = expression(paste("Wavelet Variance ", nu^2, sep = ""))
+  }else{
+    ylab = ylab_mgmwm
+  }
 
-  plot(obj_list$mimu, add_legend = FALSE)
+
+  plot(obj_list$mimu, add_legend = FALSE,ylab = ylab)
   U = length(obj_list$decomp.theo)
   col_wv = hcl(h = seq(100, 375, length = U + 1), l = 65, c = 200, alpha = 1)[1:U]
 

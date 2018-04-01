@@ -21,7 +21,9 @@ Imports:
     graphics,
     gmwm,
     shiny,
-    shinyjs
+    shinyjs,
+    progress,
+    iterpc
 RoxygenNote: 6.0.1
 Suggests: 
     knitr,

@@ -3,16 +3,14 @@ library(gmwm)
 library(wv)
 library(classimu)
 library(progress)
+library(iterpc)
 
-
-
-n1 = 100000
+n1 = 10000
 n2 = 10000
 n3 = 10000
 
 model1 =  AR1(.85,sigma2 = 1e-4 ) + WN(.005) + RW (1e-7)
-model = 3*AR1() + WN() + RW ()
-
+model = AR1() + WN() + RW ()
 
 Xt =  gen_gts(n1, model1)
 Yt =  gen_gts(n2, model1)
@@ -23,7 +21,7 @@ mimu = make_wvar_mimu_obj(Wt ,Xt, Yt, Zt, freq = 100, unit = "s",
          sensor.name = "MTiG - Gyro. X", exp.name = c("today", "yesterday", "a few days ago"))
 
 
-test.optim = mgmwm(model, mimu, stationarity_test = FALSE, B = 30, fast = F, alpha_near_test = 0.05)
+test.optim = mgmwm(model, mimu, stationarity_test = FALSE, B = 30, fast = T, alpha_near_test = 0.05)
 
 # Resutlat du test
 

@@ -1,200 +1,4 @@
-#' @export
-comb.mat = function(n){
-  c = rep(list(1:0), n)
-  expand.grid(c)
-}
 
-#' @export
-param_transform = function(model){
-
-  np = model$plength
-
-  # Initialise counter
-  counter = 1
-
-  for (j in 1:np){
-    # is random walk?
-    if (model$process.desc[j] == "RW"){
-      model$theta[counter] = exp(model$theta[counter])
-      counter = counter + 1
-    }
-
-    # is white noise?
-    if (model$process.desc[j] == "WN"){
-      model$theta[counter] = exp(model$theta[counter])
-      counter = counter + 1
-    }
-
-    # is drift?
-    if (model$process.desc[j] == "DR"){
-      model$theta[counter] = exp(model$theta[counter])
-      counter = counter + 1
-    }
-
-    # is quantization noise?
-    if (model$process.desc[j] == "QN"){
-      model$theta[counter] = exp(model$theta[counter])
-      counter = counter + 1
-    }
-
-    # is AR1?
-    if (model$process.desc[j] == "AR1"){
-      model$theta[counter] = transform_phi(model$theta[counter])
-      counter = counter + 1
-    }
-
-    # is SIGMA2?
-    if (model$process.desc[j] == "SIGMA2"){
-      model$theta[counter] = exp(model$theta[counter])
-      counter = counter + 1
-    }
-  }
-  model$theta
-}
-
-#' @export
-inv_param_transform = function(model,starting_value){
-
-  np = model$plength
-
-  # Initialise counter
-  counter = 1
-
-  for (j in 1:np){
-    # is random walk?
-    if (model$process.desc[j] == "RW"){
-      starting_value[counter] = log(starting_value[counter])
-      counter = counter + 1
-    }
-
-    # is white noise?
-    if (model$process.desc[j] == "WN"){
-      starting_value[counter] = log(starting_value[counter])
-      counter = counter + 1
-    }
-
-    # is drift?
-    if (model$process.desc[j] == "DR"){
-      model$theta[counter] = log(starting_value[counter])
-      counter = counter + 1
-    }
-
-    # is quantization noise?
-    if (model$process.desc[j] == "QN"){
-      starting_value[counter] = log(starting_value[counter])
-      counter = counter + 1
-    }
-
-    # is AR1?
-    if (model$process.desc[j] == "AR1"){
-      starting_value[counter] = inv_transform_phi(starting_value[counter])
-      counter = counter + 1
-    }
-
-    # is SIGMA2?
-    if (model$process.desc[j] == "SIGMA2"){
-      starting_value[counter] = log(starting_value[counter])
-      counter = counter + 1
-    }
-  }
-  starting_value
-}
-
-#' @export
-model_combination = function(model_max){
-
-  # String description of model
-  model_desc_max = model$desc
-
-  # number of latent process in model max
-
-  n_process_max = length(model_desc_max)
-
-
-  # Build matrix of possible combination
-  m = as.matrix(comb.mat(n_process_max))
-  m = m[-nrow(m),]
-
-  models_names = build_model_set(m,model_desc_max)
-
-  n_models =length(models_names)
-
-  all_model = list()
-
-
-  for (i in 1:n_models){
-
-    model_test = model
-
-    model_test$desc = models_names[[i]]
-
-    n_process = length(model_test$desc)
-
-    model_test$starting = TRUE
-
-
-    n_para = 0
-    for (j in 1: n_process){
-      if(model_test$desc[[j]] == "AR1"){
-        n_para = n_para +  2
-      }else{
-        n_para = n_para + 1
-      }
-      model_test$plength =  n_para
-    }
-
-    process_desc_change = rep(NA,model_test$plength)
-    theta_test = rep(NA,model_test$plength)
-    obj_desc_list = list()
-
-    counter = 1
-
-    for (j in 1: n_process){
-      if (model_test$desc[[j]] == "AR1"){
-        process_desc_change[counter] = "AR1"
-        process_desc_change[counter + 1] = "SIGMA2"
-        theta_test[counter] = 0
-        theta_test[counter + 1] = 1
-        obj_desc_list[[j]] = c(1,1)
-
-        counter = counter + 2
-      }
-
-      if (model_test$desc[[j]] == "WN"){
-        process_desc_change[counter] = "WN"
-        theta_test[counter] = 3
-        obj_desc_list[[j]] = 1
-        counter = counter + 1
-      }
-
-      if (model_test$desc[[j]] == "RW"){
-        process_desc_change[counter] = "RW"
-        theta_test[counter] = 4
-        obj_desc_list[[j]] = 1
-        counter = counter + 1
-      }
-
-      if (model_test$desc[[j]] == "QN"){
-        process_desc_change[counter] = "QN"
-        theta_test[counter] = 2
-        obj_desc_list[[j]] = 1
-        counter = counter + 1
-      }
-
-      if (model_test$desc[[j]] == "DR"){
-        process_desc_change[counter] = "DR"
-        theta_test[counter] = 5
-        obj_desc_list[[j]] = 1
-        counter = counter + 1
-      }
-      model_test$process.desc =  process_desc_change
-      model_test$theta =  theta_test
-      model_test$obj.desc =  obj_desc_list
-    }
-    all_model[[i]] = model_test
-  }
-  all_model
-}
 
 #' @export
 model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
@@ -226,6 +30,32 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
   cv_wvic = rep(NA,n_models)
 
   obj_out_sample = matrix(NA,n_replicates_permutation, n_models)
+
+  ## Compute the maximum scales for signal of different length
+  scales.num = rep(NA,length(mimu))
+
+  for (i in 1:n_replicates){
+    scales.num[i] = length(mimu[[i]]$scales)
+  }
+
+  max.scales.index = which.max(scales.num)
+  max.scales = max(scales.num)
+  scales.max = mimu[[max.scales.index]]$scales
+
+  tau.max = 2^(1:max.scales)
+
+  # Compute the average of the wavelet variance
+  wv_bar_list = list()
+  for (j in 1:n_replicates){
+    wv_bar_list[[j]] = mimu[[j]]$variance
+  }
+  wv_bar_matrix = matrix(NA,max.scales,n_replicates)
+  wv_bar = rep(NA,max.scales)
+  for (j in 1:n_replicates){
+    wv_bar_matrix[1:length(wv_bar_list[[j]]),j] = wv_bar_list[[j]]
+  }
+  wv_bar = apply(wv_bar_matrix,1,mean, na.rm = TRUE)
+
 
   pb <- progress_bar$new(
     format = "  Model :current of :total Models. Time remaining:  :eta",
@@ -334,25 +164,21 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
     }
   }
 
-  # Compute the maximum scales for signal of different length
-  scales.num = rep(NA,length(mimu))
-
-  for (i in 1:n_replicates){
-    scales.num[i] = length(mimu[[i]]$scales)
-  }
-
-  max.scales.index = which.max(scales.num)
-  max.scales = max(scales.num)
-  scales.max = mimu[[max.scales.index]]$scales
-
-  tau.max = 2^(1:max.scales)
 
   # Output if no Wilcoxon test
   if(test_pval == TRUE){
     # Output if Wilcoxon test
 
     # Extract model selected through the cv-wvic
-    model_hat = model_test[[index_select_wilcox]]
+    model_hat_empty = model_test[[index_select_wilcox]]
+    model_hat_empty$starting = TRUE
+
+    theta_mgmwm = mgmwm(model_hat_empty, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, alpha_near_test = 0.05)
+
+    model_hat = theta_mgmwm$model
+    model_hat$starting = FALSE
+    model_hat$theta = theta_mgmwm$estimate
+
 
     ## Create the ouput for the selected model
     estimate = as.matrix(model_hat$theta)
@@ -374,7 +200,15 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
 
         # First model of List is the selected one
         # Other models selected by test
-        model_list_wilcox_test[[j+1]] = model_test[[index_select_wilcox_list[j]]]
+        model_list_wilcox_test_empty = model_test[[index_select_wilcox_list[j]]]
+        model_list_wilcox_test_empty$starting = TRUE
+
+        theta_mgmwm_model_test = mgmwm(model_list_wilcox_test_empty, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, alpha_near_test = 0.05)
+        model_list_wilcox_test[[j+1]] = theta_mgmwm_model_test$model
+
+        model_list_wilcox_test[[j+1]] $starting = FALSE
+        model_list_wilcox_test[[j+1]] $theta = theta_mgmwm_model_test$estimate
+
       }
     }
 
@@ -448,7 +282,16 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
                                     mimu = mimu), class = "cvwvic")
   }else{
     # Extract model selected through the cv-wvic
-    model_hat = model_test[[mod_selected_cv]]
+
+    model_hat_empty = model_test[[mod_selected_cv]]
+    model_hat_empty$starting = TRUE
+
+    theta_mgmwm = mgmwm(model_hat_empty, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, alpha_near_test = 0.05)
+
+    model_hat = theta_mgmwm$model
+    model_hat$starting = FALSE
+    model_hat$theta = theta_mgmwm$estimate
+
 
     ## Create the ouput for the selected model
     estimate = as.matrix(model_hat$theta)
@@ -526,10 +369,19 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
 #' @export
 plot.cvwvic = function(obj_list, process.decomp = FALSE,
                        add_legend_mgwmw = TRUE, legend_pos = NULL,
-                       plot_type = "one"){
+                       plot_type = "one", ylab_cvwvic = NULL){
+
+
 
   if(plot_type == "one"){
-    plot(obj_list$mimu, add_legend = FALSE, ylab = NULL)
+
+    if (is.null(ylab_cvwvic)){
+      ylab = expression(paste("Wavelet Variance ", nu^2, sep = ""))
+    }else{
+      ylab = ylab_cvwvic
+    }
+
+    plot(obj_list$mimu, add_legend = FALSE, ylab = ylab)
     U = length(obj_list$wv_theo_latent_process[[1]])
     col_wv = hcl(h = seq(100, 375, length = U + 1), l = 65, c = 200, alpha = 1)[1:U]
 
@@ -556,6 +408,7 @@ plot.cvwvic = function(obj_list, process.decomp = FALSE,
       p_cex_legend = c(1.5)
     }
 
+
     if (is.null(legend_pos)){
       legend_pos = "bottomleft"
     }
@@ -567,10 +420,17 @@ plot.cvwvic = function(obj_list, process.decomp = FALSE,
     windows_col = ceiling(length(obj_list$wv_implied)/2)
     windows_row = ceiling(length(obj_list$wv_implied)/2)
 
-    par(mfrow=c(windows_row,2), mar = c(4,4,4,4))
+    par(mfrow=c(windows_row,2), mar = c(4,4,4,2))
 
     for (i in 1:length(obj_list$wv_implied)){
-      plot(obj_list$mimu, add_legend = FALSE)
+
+      if (is.null(ylab_cvwvic)){
+        ylab = expression(paste("Wavelet Variance ", nu^2, sep = ""))
+      }else{
+        ylab = ylab_cvwvic
+      }
+
+      plot(obj_list$mimu, add_legend = FALSE, ylab = ylab)
       if(i ==1){
         title(main = "Model Selected")
       }
@@ -600,6 +460,7 @@ plot.cvwvic = function(obj_list, process.decomp = FALSE,
         p_cex_legend = c(1.5)
       }
 
+
       if (is.null(legend_pos)){
         legend_pos = "bottomleft"
       }
@@ -611,7 +472,13 @@ plot.cvwvic = function(obj_list, process.decomp = FALSE,
   }else if(plot_type == "merged"){
     process.decomp = FALSE
 
-    plot(obj_list$mimu, add_legend = FALSE, transparency_wv = 0.4, transparency_ci = 0.05)
+    if (is.null(ylab_cvwvic)){
+      ylab = expression(paste("Wavelet Variance ", nu^2, sep = ""))
+    }else{
+      ylab = ylab_cvwvic
+    }
+
+    plot(obj_list$mimu, add_legend = FALSE, transparency_wv = 0.4, transparency_ci = 0.05, ylab = ylab)
 
     U = length(obj_list$wv_implied)
     col_wv = hcl(h = seq(100, 375, length = U + 1), l = 65, c = 200, alpha = 1)[1:U]
