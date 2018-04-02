@@ -76,7 +76,7 @@ mgmwm_obj_function = function(theta, model, mimu){
 }
 
 #' @export
-mgmwm = function(model, mimu,CI = FALSE, stationarity_test = FALSE, B = 500,
+mgmwm = function(model, mimu, CI = FALSE, stationarity_test = FALSE, B = 500,
                  fast = TRUE, alpha_ci = 0.05, alpha_near_test = 0.05){
   # Check if model is a ts object
   if(!is.mimu(mimu)){
@@ -107,98 +107,42 @@ mgmwm = function(model, mimu,CI = FALSE, stationarity_test = FALSE, B = 500,
     N[i] = length(mimu[[i]]$data)
   }
 
-  if (fast == TRUE){
-    index = which.max(N)
-    N.fast = N[index]
+  wv_empir = mimu[[1]]$variance
 
-    if(N.fast > 10000){
-      G = 1e6
-    }else{
-      G = 20000
-    }
+  index = which.max(N)
+  N.fast = N[index]
 
-    data = mimu[[index]]$data
-    uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
-                     model.type = 'imu' , starting = model$starting,
-                     p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
-                     robust=FALSE, eff = 1)
-    starting_value = uni_gmwm[[1]]
+  if(N.fast > 1000000000){
+    G = 1e6
   }else{
-    para_gmwm = matrix(NA,np,nr)
-    for (i in 1:nr){
-      data = mimu[[i]]$data
-
-      # Select G
-
-      if(N[i] > 10000){
-        G = 1e6
-      }else{
-        G = 20000
-      }
-
-      uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
-                       model.type = 'imu' , starting = model$starting,
-                       p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
-                       robust=FALSE, eff = 1)
-      para_gmwm[,i] = uni_gmwm[[1]]
-    }
-
-    starting_value = apply(para_gmwm, 1, mean)
+    G = 20000
   }
 
-  # Initialise counter
-  counter = 1
+  data = mimu[[index]]$data
+  uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
+                   model.type = 'imu' , starting = model$starting,
+                   p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
+                   robust=FALSE, eff = 1)
 
-  for (j in 1:np){
-    # is random walk?
-    if (model$process.desc[j] == "RW"){
-      starting_value[counter] = log(starting_value[counter])
-      counter = counter + 1
-    }
 
-    # is white noise?
-    if (model$process.desc[j] == "WN"){
-      starting_value[counter] = log(starting_value[counter])
-      counter = counter + 1
-    }
+  starting_value = uni_gmwm[[1]]
 
-    # is drift?
-    if (model$process.desc[j] == "DR"){
-      starting_value[counter] = log(starting_value[counter])
-      counter = counter + 1
-    }
-
-    # is quantization noise?
-    if (model$process.desc[j] == "QN"){
-      starting_value[counter] = log(starting_value[counter])
-      counter = counter + 1
-    }
-
-    # is AR1?
-    if (model$process.desc[j] == "AR1"){
-      starting_value[counter] = inv_transform_phi(starting_value[counter])
-      counter = counter + 1
-    }
-
-    # is SIGMA2?
-    if (model$process.desc[j] == "SIGMA2"){
-      starting_value[counter] = log(starting_value[counter])
-      counter = counter + 1
-    }
-  }
+  starting_value = inv_param_transform(model, starting_value)
 
   out = optim(starting_value, mgmwm_obj_function, model = model, mimu = mimu)
 
 
   # Compute the Confidence Intervals
 
-  I = iterpc(nr, nr, replace = TRUE)
-  perm = getall(I)
-  n_permutation = dim(perm)[1]
-
-  distrib_param = matrix(NA,n_permutation,length(out$par))
 
   if(CI == TRUE){
+
+    I = iterpc(nr, nr, replace = TRUE)
+    perm = getall(I)
+    n_permutation = dim(perm)[1]
+
+    distrib_param = matrix(NA,n_permutation,length(out$par))
+
     if(n_permutation > 300){
       n_permutation = 300
     }else{
@@ -213,44 +157,7 @@ mgmwm = function(model, mimu,CI = FALSE, stationarity_test = FALSE, B = 500,
       }
       distrib_param[i,] = optim(out$par, mgmwm_obj_function, model = model, mimu = sampled_imu_obj)$par
 
-      counter = 1
-      for (j in 1:np){
-        # is random walk?
-        if (model$process.desc[j] == "RW"){
-          distrib_param[,counter] = exp(distrib_param[,counter])
-          counter = counter + 1
-        }
-
-        # is white noise?
-        if (model$process.desc[j] == "WN"){
-          distrib_param[,counter] = exp(distrib_param[,counter])
-          counter = counter + 1
-        }
-
-        # is drift?
-        if (model$process.desc[j] == "DR"){
-          distrib_param[,counter] = exp(distrib_param[,counter])
-          counter = counter + 1
-        }
-
-        # is quantization noise?
-        if (model$process.desc[j] == "QN"){
-          distrib_param[counter] = exp(distrib_param[,counter])
-          counter = counter + 1
-        }
-
-        # is AR1?
-        if (model$process.desc[j] == "AR1"){
-          distrib_param[,counter] = transform_phi(distrib_param[,counter])
-          counter = counter + 1
-        }
-
-        # is SIGMA2?
-        if (model$process.desc[j] == "SIGMA2"){
-          distrib_param[,counter] = exp(distrib_param[,counter])
-          counter = counter + 1
-        }
-      }
+      distrib_param[i,] = param_transform(model,distrib_param[i,])
     }
 
   }else{
@@ -266,48 +173,7 @@ mgmwm = function(model, mimu,CI = FALSE, stationarity_test = FALSE, B = 500,
   model_hat$starting = FALSE
   model_hat$theta = out$par
 
-
-
-  # Initialise counter
-  counter = 1
-
-  for (j in 1:np){
-    # is random walk?
-    if (model$process.desc[j] == "RW"){
-      model_hat$theta[counter] = exp(model_hat$theta[counter])
-      counter = counter + 1
-    }
-
-    # is white noise?
-    if (model$process.desc[j] == "WN"){
-      model_hat$theta[counter] = exp(model_hat$theta[counter])
-      counter = counter + 1
-    }
-
-    # is drift?
-    if (model$process.desc[j] == "DR"){
-      model_hat$theta[counter] = exp(model_hat$theta[counter])
-      counter = counter + 1
-    }
-
-    # is quantization noise?
-    if (model$process.desc[j] == "QN"){
-      model_hat$theta[counter] = exp(model_hat$theta[counter])
-      counter = counter + 1
-    }
-
-    # is AR1?
-    if (model$process.desc[j] == "AR1"){
-      model_hat$theta[counter] = transform_phi(model_hat$theta[counter])
-      counter = counter + 1
-    }
-
-    # is SIGMA2?
-    if (model$process.desc[j] == "SIGMA2"){
-      model_hat$theta[counter] = exp(model_hat$theta[counter])
-      counter = counter + 1
-    }
-  }
+  model_hat$theta = param_transform(model_hat,model_hat$theta)
 
 
   # Create the near-stationnary test

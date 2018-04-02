@@ -44,19 +44,6 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
 
   tau.max = 2^(1:max.scales)
 
-  # Compute the average of the wavelet variance
-  wv_bar_list = list()
-  for (j in 1:n_replicates){
-    wv_bar_list[[j]] = mimu[[j]]$variance
-  }
-  wv_bar_matrix = matrix(NA,max.scales,n_replicates)
-  wv_bar = rep(NA,max.scales)
-  for (j in 1:n_replicates){
-    wv_bar_matrix[1:length(wv_bar_list[[j]]),j] = wv_bar_list[[j]]
-  }
-  wv_bar = apply(wv_bar_matrix,1,mean, na.rm = TRUE)
-
-
   pb <- progress_bar$new(
     format = "  Model :current of :total Models. Time remaining:  :eta",
     clear = FALSE, total = n_models, width = 100)
@@ -72,7 +59,7 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
 
     starting = model_est[[i]]$starting
 
-    set.seed(2710)
+   # set.seed(2710)
 
     for (d in 1:n_replicates_permutation){
 
@@ -122,7 +109,7 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
 
       obj_out_sample[d,i] = mgmwm_obj_function(model_test[[i]]$theta, model_test[[i]], mimu_test)/s_valid
 
-      model_test[[i]]$theta = param_transform(model_test[[i]])
+      model_test[[i]]$theta = param_transform(model_test[[i]], model_test[[i]]$theta)
     }
     cv_wvic[i] = mean(obj_out_sample[,i])
     # Update progress bar
@@ -286,7 +273,7 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
     model_hat_empty = model_test[[mod_selected_cv]]
     model_hat_empty$starting = TRUE
 
-    theta_mgmwm = mgmwm(model_hat_empty, mimu, stationarity_test = TRUE, B = 500, fast = TRUE, alpha_near_test = 0.05)
+    theta_mgmwm = mgmwm(model_hat_empty, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, alpha_near_test = 0.05)
 
     model_hat = theta_mgmwm$model
     model_hat$starting = FALSE

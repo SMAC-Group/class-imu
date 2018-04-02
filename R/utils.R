@@ -28,7 +28,7 @@ comb.mat = function(n){
 }
 
 #' @export
-param_transform = function(model){
+param_transform = function(model, theta1){
 
   np = model$plength
 
@@ -38,45 +38,45 @@ param_transform = function(model){
   for (j in 1:np){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      model$theta[counter] = exp(model$theta[counter])
+      theta1[counter] = exp(theta1[counter])
       counter = counter + 1
     }
 
     # is white noise?
     if (model$process.desc[j] == "WN"){
-      model$theta[counter] = exp(model$theta[counter])
+      theta1[counter] = exp(theta1[counter])
       counter = counter + 1
     }
 
     # is drift?
     if (model$process.desc[j] == "DR"){
-      model$theta[counter] = exp(model$theta[counter])
+      theta1[counter] = exp(theta1[counter])
       counter = counter + 1
     }
 
     # is quantization noise?
     if (model$process.desc[j] == "QN"){
-      model$theta[counter] = exp(model$theta[counter])
+      theta1[counter] = exp(theta1[counter])
       counter = counter + 1
     }
 
     # is AR1?
     if (model$process.desc[j] == "AR1"){
-      model$theta[counter] = transform_phi(model$theta[counter])
+      theta1[counter] = transform_phi(theta1[counter])
       counter = counter + 1
     }
 
     # is SIGMA2?
     if (model$process.desc[j] == "SIGMA2"){
-      model$theta[counter] = exp(model$theta[counter])
+      theta1[counter] = exp(theta1[counter])
       counter = counter + 1
     }
   }
-  model$theta
+  theta1
 }
 
 #' @export
-inv_param_transform = function(model,starting_value){
+inv_param_transform = function(model,theta1){
 
   np = model$plength
 
@@ -86,41 +86,41 @@ inv_param_transform = function(model,starting_value){
   for (j in 1:np){
     # is random walk?
     if (model$process.desc[j] == "RW"){
-      starting_value[counter] = log(starting_value[counter])
+      theta1[counter] = log(theta1[counter])
       counter = counter + 1
     }
 
     # is white noise?
     if (model$process.desc[j] == "WN"){
-      starting_value[counter] = log(starting_value[counter])
+      theta1[counter] = log(theta1[counter])
       counter = counter + 1
     }
 
     # is drift?
     if (model$process.desc[j] == "DR"){
-      model$theta[counter] = log(starting_value[counter])
+      theta1[counter] = log(theta1[counter])
       counter = counter + 1
     }
 
     # is quantization noise?
     if (model$process.desc[j] == "QN"){
-      starting_value[counter] = log(starting_value[counter])
+      theta1[counter] = log(theta1[counter])
       counter = counter + 1
     }
 
     # is AR1?
     if (model$process.desc[j] == "AR1"){
-      starting_value[counter] = inv_transform_phi(starting_value[counter])
+      theta1[counter] = inv_transform_phi(theta1[counter])
       counter = counter + 1
     }
 
     # is SIGMA2?
     if (model$process.desc[j] == "SIGMA2"){
-      starting_value[counter] = log(starting_value[counter])
+      theta1[counter] = log(theta1[counter])
       counter = counter + 1
     }
   }
-  starting_value
+  theta1
 }
 
 #' @export
