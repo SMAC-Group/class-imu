@@ -1,21 +1,50 @@
 
 
 #' @export
-model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
+model_selection = function(model,mimu, s_est = NULL,
+                           n_boot_ci_max = NULL, stationarity_test = FALSE, B_stationarity_test = NULL,
+                           alpha_near_test = NULL, paired_test = FALSE,
+                           alpha_paired_test = NULL, seed = 2710){
 
   # model_max must be an object of type model
 
   # mimu must be an mimu obj
 
+  if(is.null(B_stationarity_test)){
+    B = 100
+  }else{
+    B = B_stationarity_test
+  }
+
+  # Level of confidence for stationarity test
+  if(is.null(alpha_near_test)){
+    alpha_near_test = .05
+  }else{
+    alpha_near_test = alpha_near_test
+  }
+
+  # Level of confidence for Wilcoxon paired test
+  if(is.null(alpha_paired_test)){
+    alpha_paired_test = .05
+  }else{
+    alpha_paired_test = alpha_paired_test
+  }
+
   # Number of replicates
   n_replicates = length(mimu)
 
-  # Number of replicates fot compute the CV_WVIC
+  # Number of time series replicates for estimation
+  if(is.null(s_est)){
+    s_est = ceiling(n_replicates/2)
+  }else{
+    s_est = s_est
+  }
 
-  s_valid = n_replicates - s_test
+  # Number of time series replicates for validation
+  s_valid = n_replicates - s_est
 
   # Matrix of possible combination of Time series to estimate
-  pair = t(combn(n_replicates,s_test))
+  pair = t(combn(n_replicates,s_est))
 
   # Number of possible combination
   n_replicates_permutation = (dim(pair)[1])
@@ -44,6 +73,9 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
 
   tau.max = 2^(1:max.scales)
 
+  # Set seed for reproducibility
+  set.seed(seed)
+
   pb <- progress_bar$new(
     format = "  Model :current of :total Models. Time remaining:  :eta",
     clear = FALSE, total = n_models, width = 100)
@@ -59,45 +91,49 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
 
     starting = model_est[[i]]$starting
 
-   # set.seed(2710)
+
+    N = rep(NA,n_replicates)
+    param_starting = matrix(NA,n_replicates,np)
+
+    for (k in 1:n_replicates){
+      N[k] = length(mimu[[k]]$data)
+
+      if(N[k] > 10000){
+        G = 1e6
+      }else{
+        G = 20000
+      }
+      data = mimu[[k]]$data
+
+      uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
+                       model.type = 'imu' , starting = starting,
+                       p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
+                       robust=FALSE, eff = 1)[[1]]
+
+      param_starting[k,] = uni_gmwm
+    }
+
+    obj_value_starting_value = rep(NA, n_replicates)
+    mgmwm_list = list()
+    for (j in 1:n_replicates){
+      starting_value = inv_param_transform(model_est[[i]], param_starting[j,])
+      mgmwm_list[[j]] = optim(starting_value, mgmwm_obj_function, model = model_est[[i]], mimu = mimu)
+      obj_value_starting_value[j] = mgmwm_list[[j]]$value
+    }
+
+    mgmwm_full = mgmwm_list[[which.min(obj_value_starting_value)]]$par
 
     for (d in 1:n_replicates_permutation){
 
       mimu_est = list()
       class(mimu_est) = "mimu"
-      mimu_test = mimu[-pair[d,sequence(s_test)]]
+      mimu_test = mimu[-pair[d,sequence(s_est)]]
 
-      for (s in 1:s_test){
+      for (s in 1:s_est){
         mimu_est[[s]] = mimu[[pair[d,s]]]
       }
 
-      if(d == 1){
-        para_gmwm = matrix(NA,np,s_test)
-        N = rep(NA,s_test)
-        for (k in 1:s_test){
-          N[k] = length(mimu_est[[k]]$data)
-          data = mimu_est[[k]]$data
-
-          # Select G
-
-          if(N[k] > 10000){
-            G = 1e6
-          }else{
-            G = 20000
-          }
-
-          uni_gmwm = .Call('gmwm_gmwm_master_cpp', PACKAGE = 'gmwm', data, theta, desc, obj = obj_desc,
-                           model.type = 'imu' , starting = model_est[[i]]$starting,
-                           p = 0.05, compute_v = "fast", K = 1, H = 100, G = G,
-                           robust=FALSE, eff = 1)
-          para_gmwm[,k] = uni_gmwm[[1]]
-        }
-        starting_value = apply(para_gmwm, 1, mean)
-
-        starting_value = inv_param_transform(model_est[[i]],starting_value)
-      }
-
-      out = optim(starting_value, mgmwm_obj_function, model = model_est[[i]], mimu = mimu_est)
+      out = optim(mgmwm_full, mgmwm_obj_function, model = model_est[[i]], mimu = mimu_est)
 
       # transform e.g. variance = exp(out$par[1])
 
@@ -121,7 +157,7 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
   mod_selected_cv = which.min(cv_wvic)
 
   #Paired Wilcoxon test
-  if(test_pval == TRUE){
+  if(paired_test == TRUE){
     wilcox_test_cv_wvic = rep(FALSE,n_models)
 
     model_selected_cv_size = model_test[[mod_selected_cv]]$plength
@@ -131,7 +167,7 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
         wilcox_test_cv_wvic[i] = wilcox.test(obj_out_sample[,i],obj_out_sample[,mod_selected_cv],paired = T,alternative = "greater")$p.val
       }
     }
-    test_wilcox_result = (wilcox_test_cv_wvic > .05)
+    test_wilcox_result = (wilcox_test_cv_wvic > alpha_paired_test)
 
     if(sum(test_wilcox_result) > 0){
       index_select_wilcox_list = which(test_wilcox_result[1:n_models] == TRUE)
@@ -144,23 +180,27 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
         model_complexity[model_complexity == 0] = NA
         index_select_wilcox = which.min(model_complexity)
       }else{
-        test_pval = FALSE
+        paired_test = FALSE
       }
     }else{
-      test_pval = FALSE
+      paired_test = FALSE
     }
   }
 
 
   # Output if no Wilcoxon test
-  if(test_pval == TRUE){
+  if(paired_test == TRUE){
     # Output if Wilcoxon test
 
     # Extract model selected through the cv-wvic
     model_hat_empty = model_test[[index_select_wilcox]]
     model_hat_empty$starting = TRUE
 
-    theta_mgmwm = mgmwm(model_hat_empty, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, alpha_near_test = 0.05)
+    theta_mgmwm = mgmwm(model_hat_empty,
+                        mimu, stationarity_test = FALSE,
+                        B_stationarity_test = B_stationarity_test,
+                        alpha_near_test = alpha_near_test,
+                        seed = seed)
 
     model_hat = theta_mgmwm$model
     model_hat$starting = FALSE
@@ -190,7 +230,12 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
         model_list_wilcox_test_empty = model_test[[index_select_wilcox_list[j]]]
         model_list_wilcox_test_empty$starting = TRUE
 
-        theta_mgmwm_model_test = mgmwm(model_list_wilcox_test_empty, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, alpha_near_test = 0.05)
+        theta_mgmwm_model_test = mgmwm(model_list_wilcox_test_empty,mimu, stationarity_test = FALSE,
+                                       B_stationarity_test = B_stationarity_test,
+                                       alpha_near_test = alpha_near_test,
+                                       seed = seed)
+
+
         model_list_wilcox_test[[j+1]] = theta_mgmwm_model_test$model
 
         model_list_wilcox_test[[j+1]] $starting = FALSE
@@ -273,7 +318,10 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
     model_hat_empty = model_test[[mod_selected_cv]]
     model_hat_empty$starting = TRUE
 
-    theta_mgmwm = mgmwm(model_hat_empty, mimu, stationarity_test = FALSE, B = 500, fast = TRUE, alpha_near_test = 0.05)
+    theta_mgmwm = mgmwm(model_hat_empty,mimu, stationarity_test = FALSE,
+                        B_stationarity_test = B_stationarity_test,
+                        alpha_near_test = alpha_near_test,
+                        seed = seed)
 
     model_hat = theta_mgmwm$model
     model_hat$starting = FALSE
@@ -339,6 +387,9 @@ model_selection = function(mimu, model, s_test = s_test, test_pval = FALSE){
       model.decomp.theo = model.desc.decomp.theo[[i]]
       decomp.theo[[i]] =  wv_theo(model.decomp.theo, tau.max)
     }
+
+    # Cancel previous seed
+    set.seed(as.numeric(format(Sys.time(),"%s"))/10)
 
     model_selected = structure(list(estimate = estimate,
                                     decomp.theo = decomp.theo,

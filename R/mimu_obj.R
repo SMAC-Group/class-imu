@@ -7,7 +7,6 @@
 #' @param units A \code{string}.
 #' @param sensor.name A \code{string}.
 #' @param freq A \code{string}
-#' @result an object which combines multiple error signal from an IMU.
 #' @author Stephane Guerrier
 #' @export
 #' @examples

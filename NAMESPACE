@@ -3,6 +3,7 @@
 S3method(plot,cvwvic)
 S3method(plot,mgmwm)
 S3method(plot,mimu)
+export(ci_mgmwm)
 export(comb.mat)
 export(inv_logit)
 export(inv_param_transform)
